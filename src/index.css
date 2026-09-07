@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --color-geo-black: #0A0A0A;
+  --color-geo-dark: #121212;
+  --color-geo-surface: #171717;
+  --color-geo-surface-elevated: #222222;
+  --color-geo-border: #2A2A2A;
+  --color-geo-border-subtle: #1F1F1F;
+  --color-geo-yellow: #FFE100;
+  --color-geo-yellow-hover: #F5D700;
+  --color-geo-yellow-light: #FFF9B3;
+  --color-geo-white: #F8F8F8;
+  --color-geo-gray-light: #E5E5E5;
+  --color-geo-gray: #8E8E93;
+  --color-geo-gray-dark: #3A3A3C;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #2A2A2A;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #FFE100;
+}
+
