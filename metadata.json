@@ -1,6 +1,6 @@
 {
   "name": "PikPok",
-  "description": "TikTok-style short video shopping app featuring vertical feeds, interactive product overlays, and seamless checkout.",
+  "description": "Modern TikTok-style social e-commerce platform with video feed, floating product overlays, PKR pricing, and Cash on Delivery checkout.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
