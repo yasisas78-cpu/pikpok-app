@@ -3,7 +3,7 @@ import { Play, Pause, AlertCircle } from 'lucide-react';
 import { VideoItem, Product, Creator } from '../types';
 import { YellowBuyButton } from './YellowBuyButton';
 import { VideoEngagementOverlay } from './VideoEngagementOverlay';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface FloatingHeart {
   id: number;
