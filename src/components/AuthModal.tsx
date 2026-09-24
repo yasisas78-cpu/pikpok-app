@@ -14,6 +14,7 @@ interface AuthModalProps {
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess, lang }) => {
   const t = translations[lang];
   const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
   const [selectedRole, setSelectedRole] = useState<UserRole>('buyer');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -24,29 +25,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
 
   if (!isOpen) return null;
 
-  const buildAuthUser = (user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }): AuthUser => {
+  const buildAuthUser = (user: { id: string; email?: string | null; phone?: string | null; user_metadata?: Record<string, unknown> }): AuthUser => {
     const metadataName = typeof user.user_metadata?.username === 'string'
       ? user.user_metadata.username
       : typeof user.user_metadata?.name === 'string' ? user.user_metadata.name : '';
     const metadataRole = user.user_metadata?.role === 'seller' ? 'seller' : selectedRole;
     return {
       id: user.id,
-      name: metadataName || name.trim() || user.email?.split('@')[0] || 'PikPok User',
-      emailOrPhone: user.email || email.trim(),
+      name: metadataName || name.trim() || user.email?.split('@')[0] || user.phone || 'PikPok User',
+      emailOrPhone: user.email || user.phone || email.trim(),
       avatar: typeof user.user_metadata?.avatar_url === 'string'
         ? user.user_metadata.avatar_url
         : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80',
       role: metadataRole,
-      method: 'email'
+      method: user.phone ? 'phone' : 'email'
     };
   };
 
-  const completeDemoAuth = (method: 'email' | 'google') => {
-    const demoEmail = email.trim() || 'demo@pikpok.local';
+  const completeDemoAuth = (method: 'email' | 'phone' | 'google') => {
+    const identifier = email.trim() || (method === 'phone' ? '+923001234567' : 'demo@pikpok.local');
     onLoginSuccess({
-      id: `demo_${demoEmail.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
-      name: name.trim() || demoEmail.split('@')[0] || 'Demo User',
-      emailOrPhone: demoEmail,
+      id: `demo_${identifier.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+      name: name.trim() || identifier.split('@')[0] || 'Demo User',
+      emailOrPhone: identifier,
       avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80',
       role: selectedRole,
       method
@@ -60,18 +61,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
     setMessage(null);
 
     if (!supabase || !isSupabaseConfigured) {
-      completeDemoAuth('email');
+      completeDemoAuth(authMethod);
       return;
     }
 
     setIsSubmitting(true);
+    const identifier = authMethod === 'phone' ? email.trim().replace(/\s+/g, '') : email.trim();
     const result = mode === 'signup'
-      ? await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: { data: { username: name.trim(), name: name.trim(), role: selectedRole } }
-        })
-      : await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      ? authMethod === 'phone'
+        ? await supabase.auth.signUp({ phone: identifier, password, options: { data: { username: name.trim(), name: name.trim(), role: selectedRole } } })
+        : await supabase.auth.signUp({ email: identifier, password, options: { data: { username: name.trim(), name: name.trim(), role: selectedRole } } })
+      : authMethod === 'phone'
+        ? await supabase.auth.signInWithPassword({ phone: identifier, password })
+        : await supabase.auth.signInWithPassword({ email: identifier, password });
     setIsSubmitting(false);
 
     if (result.error) {
@@ -80,7 +82,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
     }
 
     if (mode === 'signup' && !result.data.session) {
-      setMessage('Check your email to confirm your account, then sign in.');
+      setMessage(authMethod === 'phone' ? 'Check your phone for the verification code, then sign in.' : 'Check your email to confirm your account, then sign in.');
       setMode('login');
       return;
     }
@@ -153,13 +155,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
 
         <div className="relative flex py-4 items-center">
           <div className="flex-grow border-t border-neutral-800" />
-          <span className="flex-shrink mx-3 text-[11px] text-neutral-500 uppercase tracking-widest font-semibold">or with email</span>
+          <span className="flex-shrink mx-3 text-[11px] text-neutral-500 uppercase tracking-widest font-semibold">or with email / phone</span>
           <div className="flex-grow border-t border-neutral-800" />
         </div>
 
         <form onSubmit={handleEmailAuth} className="space-y-3">
           {mode === 'signup' && <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Username" className="w-full px-3.5 py-2.5 bg-neutral-800/90 border border-neutral-700 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-pink-500" />}
-          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email address" className="w-full px-3.5 py-2.5 bg-neutral-800/90 border border-neutral-700 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-pink-500" />
+          <div className="grid grid-cols-2 gap-2 rounded-xl bg-neutral-800/70 p-1">
+            <button type="button" onClick={() => setAuthMethod('email')} className={`rounded-lg py-1.5 text-xs font-bold ${authMethod === 'email' ? 'bg-neutral-700 text-white' : 'text-neutral-400'}`}>Email</button>
+            <button type="button" onClick={() => setAuthMethod('phone')} className={`rounded-lg py-1.5 text-xs font-bold ${authMethod === 'phone' ? 'bg-neutral-700 text-white' : 'text-neutral-400'}`}>Phone</button>
+          </div>
+          <input required type={authMethod === 'email' ? 'email' : 'tel'} value={email} onChange={(event) => setEmail(event.target.value)} placeholder={authMethod === 'email' ? 'Email address' : '+92 300 1234567'} className="w-full px-3.5 py-2.5 bg-neutral-800/90 border border-neutral-700 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-pink-500" />
           <input required minLength={6} type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password (minimum 6 characters)" className="w-full px-3.5 py-2.5 bg-neutral-800/90 border border-neutral-700 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-pink-500" />
           {error && <p className="text-[11px] text-rose-400">{error}</p>}
           {message && <p className="text-[11px] text-emerald-400">{message}</p>}

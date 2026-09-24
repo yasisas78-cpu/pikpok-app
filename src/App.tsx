@@ -62,10 +62,7 @@ import { translations } from './data/translations';
 import {
   PAKISTANI_CITIES,
   INITIAL_PRODUCTS,
-  INITIAL_VIDEOS,
-  INITIAL_USER_PROFILE,
-  INITIAL_USER_VIDEOS,
-  INITIAL_CONVERSATIONS
+  INITIAL_VIDEOS
 } from './data/products';
 import { ProfileView } from './components/ProfileView';
 import { StreakModal } from './components/StreakModal';
@@ -74,10 +71,30 @@ import { AuthModal } from './components/AuthModal';
 import { InboxView } from './components/InboxView';
 import { VideoUploadModal } from './components/VideoUploadModal';
 import { ProductReviews } from './components/ProductReviews';
+import { InstallPrompt } from './components/InstallPrompt';
 import { supabase } from './lib/supabase';
 import { calculateDeliveryQuote } from './lib/marketplace';
 
 const DEMO_AUTH_STORAGE_KEY = 'pikpok_demo_auth_user';
+
+const accountStorageKey = (key: string, userId?: string) => userId ? `${key}:${userId}` : key;
+
+const createFreshUserProfile = (user?: AuthUser | null): UserProfile => {
+  const identifier = user?.name || user?.emailOrPhone || 'PikPok User';
+  return {
+    name: user?.name || 'PikPok User',
+    handle: `@${identifier.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20) || 'pikpokuser'}`,
+    avatar: user?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80',
+    role: user?.role || 'buyer',
+    emailOrPhone: user?.emailOrPhone,
+    bio: { en: 'New to PikPok.', ru: 'Novyy polzovatel PikPok.', ur: 'PikPok par naye hain.' },
+    followersCount: '0',
+    followingCount: 0,
+    totalLikesCount: '0',
+    streakScore: 0,
+    lastActiveTimestamp: Date.now()
+  };
+};
 
 export default function App() {
   // Navigation & Language
@@ -100,7 +117,7 @@ export default function App() {
   useEffect(() => {
     if (!supabase) return;
 
-    const syncSessionUser = (sessionUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> } | null) => {
+    const syncSessionUser = (sessionUser: { id: string; email?: string | null; phone?: string | null; user_metadata?: Record<string, unknown> } | null) => {
       if (!sessionUser) {
         setAuthUser(null);
         return;
@@ -114,11 +131,11 @@ export default function App() {
         : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80';
       setAuthUser({
         id: sessionUser.id,
-        name: metadataName || sessionUser.email?.split('@')[0] || 'PikPok User',
-        emailOrPhone: sessionUser.email || '',
+        name: metadataName || sessionUser.email?.split('@')[0] || sessionUser.phone || 'PikPok User',
+        emailOrPhone: sessionUser.email || sessionUser.phone || '',
         avatar: metadataAvatar,
         role: sessionUser.user_metadata?.role === 'seller' ? 'seller' : 'buyer',
-        method: 'email'
+        method: sessionUser.phone ? 'phone' : 'email'
       });
     };
 
@@ -136,7 +153,7 @@ export default function App() {
       const stored = localStorage.getItem('pikpok_conversations');
       if (stored) return JSON.parse(stored);
     } catch (e) {}
-    return INITIAL_CONVERSATIONS;
+    return [];
   });
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
@@ -148,67 +165,33 @@ export default function App() {
   }, [conversations]);
 
   // User Profile & Streak State
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('pikpok_user_profile');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // fallback
-      }
-    }
-    return INITIAL_USER_PROFILE;
-  });
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => createFreshUserProfile(authUser));
 
-  const [uploadedVideos, setUploadedVideos] = useState<UserUploadedVideo[]>(() => {
-    const saved = localStorage.getItem('pikpok_uploaded_videos');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // fallback
-      }
-    }
-    return INITIAL_USER_VIDEOS;
-  });
+  const [uploadedVideos, setUploadedVideos] = useState<UserUploadedVideo[]>([]);
 
   const [savedProducts, setSavedProducts] = useState<Product[]>(() => {
-    return [INITIAL_PRODUCTS[0], INITIAL_PRODUCTS[3]]; // initial saved items
+    return [];
   });
 
   // Requirement 1: Separate state arrays (likedVideos and savedVideos) to store the IDs of videos the user interacts with
   const [likedVideoIds, setLikedVideoIds] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem('pikpok_liked_video_ids');
-      if (stored) return JSON.parse(stored);
-    } catch (e) {
-      // ignore
-    }
-    // Default initial liked video (v1 and v3)
-    return ['v1', 'v3'];
+    return [];
   });
 
   const [savedVideoIds, setSavedVideoIds] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem('pikpok_saved_video_ids');
-      if (stored) return JSON.parse(stored);
-    } catch (e) {
-      // ignore
-    }
-    // Default initial saved video (v2 and v4)
-    return ['v2', 'v4'];
+    return [];
   });
 
   // Sync liked & saved IDs to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('pikpok_liked_video_ids', JSON.stringify(likedVideoIds));
+      if (authUser) localStorage.setItem(accountStorageKey('pikpok_liked_video_ids', authUser.id), JSON.stringify(likedVideoIds));
     } catch (e) {}
   }, [likedVideoIds]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('pikpok_saved_video_ids', JSON.stringify(savedVideoIds));
+      if (authUser) localStorage.setItem(accountStorageKey('pikpok_saved_video_ids', authUser.id), JSON.stringify(savedVideoIds));
     } catch (e) {}
   }, [savedVideoIds]);
 
@@ -246,9 +229,7 @@ export default function App() {
   const [orderConfirmedData, setOrderConfirmedData] = useState<OrderDetails | null>(null);
 
   // Cart
-  const [cart, setCart] = useState<CartItem[]>([
-    { product: INITIAL_PRODUCTS[0], quantity: 1 }
-  ]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [promoCodeInput, setPromoCodeInput] = useState<string>('');
   const [isPromoApplied, setIsPromoApplied] = useState<boolean>(false);
 
@@ -269,12 +250,47 @@ export default function App() {
 
   // Persist Profile to LocalStorage
   useEffect(() => {
-    localStorage.setItem('pikpok_user_profile', JSON.stringify(userProfile));
-  }, [userProfile]);
+    if (authUser) localStorage.setItem(accountStorageKey('pikpok_user_profile', authUser.id), JSON.stringify(userProfile));
+  }, [userProfile, authUser]);
 
   useEffect(() => {
-    localStorage.setItem('pikpok_uploaded_videos', JSON.stringify(uploadedVideos));
-  }, [uploadedVideos]);
+    if (authUser) localStorage.setItem(accountStorageKey('pikpok_uploaded_videos', authUser.id), JSON.stringify(uploadedVideos));
+  }, [uploadedVideos, authUser]);
+
+  useEffect(() => {
+    const userId = authUser?.id;
+    if (!userId) {
+      setUserProfile(createFreshUserProfile(null));
+      setUploadedVideos([]);
+      setLikedVideoIds([]);
+      setSavedVideoIds([]);
+      setSavedProducts([]);
+      setCart([]);
+      setConversations([]);
+      setActiveConversationId(null);
+      return;
+    }
+
+    const read = <T,>(key: string, fallback: T): T => {
+      try {
+        const stored = localStorage.getItem(accountStorageKey(key, userId));
+        return stored ? JSON.parse(stored) as T : fallback;
+      } catch {
+        return fallback;
+      }
+    };
+    const loadedLikes = read<string[]>('pikpok_liked_video_ids', []);
+    const loadedSaves = read<string[]>('pikpok_saved_video_ids', []);
+    setUserProfile(read<UserProfile>('pikpok_user_profile', createFreshUserProfile(authUser)));
+    setUploadedVideos(read<UserUploadedVideo[]>('pikpok_uploaded_videos', []));
+    setLikedVideoIds(loadedLikes);
+    setSavedVideoIds(loadedSaves);
+    setSavedProducts([]);
+    setCart([]);
+    setConversations([]);
+    setActiveConversationId(null);
+    setVideos(INITIAL_VIDEOS.map((vid) => ({ ...vid, isLiked: loadedLikes.includes(vid.id), isSaved: loadedSaves.includes(vid.id) })));
+  }, [authUser?.id]);
 
   // Toast Trigger
   const triggerToast = (msg: string) => {
@@ -1028,13 +1044,6 @@ export default function App() {
     if (!supabase) {
       localStorage.setItem(DEMO_AUTH_STORAGE_KEY, JSON.stringify(user));
     }
-    setUserProfile((prev) => ({
-      ...prev,
-      name: user.name,
-      role: user.role,
-      avatar: user.avatar,
-      emailOrPhone: user.emailOrPhone
-    }));
     triggerToast(t.authSuccessToast);
   };
 
@@ -1043,6 +1052,12 @@ export default function App() {
     localStorage.removeItem(DEMO_AUTH_STORAGE_KEY);
     setAuthUser(null);
     triggerToast(t.authSignOutToast);
+  };
+
+  const handleSwitchAccount = () => {
+    handleSignOut();
+    setIsSettingsOpen(false);
+    setIsAuthModalOpen(true);
   };
 
   return (
@@ -1062,6 +1077,8 @@ export default function App() {
           <span>{toastMessage}</span>
         </div>
       )}
+
+      <InstallPrompt />
 
       {/* CLEAN TIKTOK-STYLE TOP HEADER */}
       <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between bg-gradient-to-b from-black/70 via-black/25 to-transparent px-4 text-white">
@@ -2545,6 +2562,7 @@ export default function App() {
                       <div className="min-w-0"><p className="truncate text-sm font-bold">{authUser.name}</p><p className="truncate text-xs text-white/50">{authUser.emailOrPhone}</p></div>
                     </div>
                     <button onClick={() => { setIsSettingsOpen(false); setCurrentTab('profile'); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/10"><User className="h-4 w-4 text-pink-400" />Account profile</button>
+                    <button onClick={handleSwitchAccount} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-pink-300 hover:bg-pink-500/10"><LogIn className="h-4 w-4" />Switch account</button>
                     <button onClick={handleSignOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-rose-300 hover:bg-rose-500/10"><LogOut className="h-4 w-4" />{t.signOutBtn}</button>
                   </>
                 ) : (
