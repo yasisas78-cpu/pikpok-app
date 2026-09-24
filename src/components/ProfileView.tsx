@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, UserUploadedVideo, Product, Language, VideoPost } from '../types';
 import { translations } from '../data/translations';
+import { SellerWallet } from './SellerWallet';
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -32,6 +33,7 @@ interface ProfileViewProps {
   onOpenCreateVideo: () => void;
   onUpdateProfile: (name: string, bio: string) => void;
   availableProducts: Product[];
+  sellerId?: string;
   lang: Language;
 }
 
@@ -48,6 +50,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenCreateVideo,
   onUpdateProfile,
   availableProducts,
+  sellerId,
   lang
 }) => {
   const t = translations[lang];
@@ -198,6 +201,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <span>{t.postVideoBtn}</span>
           </button>
         </div>
+
+        {profile.role === 'seller' && sellerId && <div className="mt-3 w-full max-w-sm"><SellerWallet sellerId={sellerId} /></div>}
       </div>
 
       {/* DISTINCT PROFILE TABS: LIKED VIDEOS vs SAVED VIDEOS vs MY POSTS vs WISHLIST */}

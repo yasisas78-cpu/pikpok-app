@@ -17,6 +17,10 @@ View your app in AI Studio: https://ai.studio/apps/077b9889-34f3-46c2-929a-37339
    `npm install`
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to `.env.local`. Enable Email auth in Supabase; enable Google auth too if you want the Google button.
-4. Run [supabase/schema.sql](supabase/schema.sql) in the Supabase SQL Editor to create video storage, posts, likes, comments, RLS, and realtime publication settings.
+4. Run [supabase/schema.sql](supabase/schema.sql) in the Supabase SQL Editor to create video storage, marketplace orders, 5% commission settings, Pakistan delivery rates, escrow/wallet settlement, product reviews, RLS, and realtime publication settings.
 5. Add `http://localhost:3000` to Supabase Authentication URL Configuration, then run the app:
    `npm run dev`
+
+The initial marketplace rules are doorstep delivery only, with base courier rates of Rs. 160 same-city or Rs. 200 major inter-city, Rs. 60 per additional kilogram above 1kg, and Rs. 50 for remote zones. Seller funds move through 9-day escrow, 3-4 day processing settlement, then available payout; the commission is an internal 5% seller deduction.
+
+PikPok also ships as an installable PWA through `public/manifest.webmanifest` and `public/sw.js`.

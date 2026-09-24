@@ -73,7 +73,9 @@ import { CheckoutModal } from './components/CheckoutModal';
 import { AuthModal } from './components/AuthModal';
 import { InboxView } from './components/InboxView';
 import { VideoUploadModal } from './components/VideoUploadModal';
+import { ProductReviews } from './components/ProductReviews';
 import { supabase } from './lib/supabase';
+import { calculateDeliveryQuote } from './lib/marketplace';
 
 const DEMO_AUTH_STORAGE_KEY = 'pikpok_demo_auth_user';
 
@@ -880,8 +882,9 @@ export default function App() {
     0
   );
 
-  const isFreeDelivery = subtotal >= 2500 || subtotal === 0;
-  const deliveryFee = isFreeDelivery ? 0 : 199;
+  const deliveryQuote = calculateDeliveryQuote({ zone: 'major-intercity', weightKg: 1 });
+  const isFreeDelivery = false;
+  const deliveryFee = deliveryQuote.total;
   const promoDiscount = isPromoApplied ? Math.round(subtotal * 0.1) : 0;
   const grandTotal = Math.max(0, subtotal + deliveryFee - promoDiscount);
   const cartTotalItems = cart.reduce((acc, curr) => acc + curr.quantity, 0);
@@ -1559,27 +1562,20 @@ export default function App() {
                 )}
               </div>
 
-              {/* Free Delivery Meter */}
+              {/* Pakistan Doorstep Delivery */}
               <div className="bg-neutral-900/90 border border-neutral-800 p-2.5 rounded-xl">
                 <div className="flex items-center justify-between text-[11px] mb-1">
                   <span className="flex items-center text-neutral-300 font-semibold">
                     <Truck className="w-3.5 h-3.5 text-pink-400 mr-1.5" />
-                    {isFreeDelivery
-                      ? t.freeDeliveryMet
-                      : t.freeDeliveryAway.replace(
-                          '{amount}',
-                          `Rs. ${(2500 - subtotal).toLocaleString()}`
-                        )}
+                    Doorstep delivery across Pakistan
                   </span>
-                  <span className="text-[10px] text-pink-400 font-bold">
-                    {subtotal >= 2500 ? '100%' : `${Math.min(100, Math.round((subtotal / 2500) * 100))}%`}
-                  </span>
+                  <span className="text-[10px] text-pink-400 font-bold">From Rs. {deliveryFee}</span>
                 </div>
                 <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
                   <div
                     className="bg-gradient-to-r from-pink-500 to-rose-400 h-full rounded-full transition-all duration-300"
                     style={{
-                      width: `${Math.min(100, Math.round((subtotal / 2500) * 100))}%`
+                      width: '100%'
                     }}
                   />
                 </div>
@@ -1756,6 +1752,7 @@ export default function App() {
             }}
             onUpdateProfile={handleUpdateProfile}
             availableProducts={INITIAL_PRODUCTS}
+            sellerId={authUser?.id}
             lang={lang}
           />
         )}
@@ -2074,6 +2071,13 @@ export default function App() {
                   </ul>
                 </div>
 
+                <ProductReviews
+                  productId={selectedProduct.id}
+                  rating={selectedProduct.rating}
+                  reviewCount={selectedProduct.reviewsCount}
+                  userId={authUser?.id}
+                />
+
                 <div className="bg-neutral-800/60 border border-neutral-700/80 rounded-2xl p-3 space-y-2">
                   <div className="flex items-center space-x-2 text-emerald-400 font-semibold text-[11px]">
                     <ShieldCheck className="w-4 h-4 shrink-0" />
@@ -2152,17 +2156,8 @@ export default function App() {
               </div>
 
               <div className="my-2 p-2 bg-neutral-950 rounded-xl border border-neutral-800 text-[11px] flex items-center justify-between">
-                <span className="text-neutral-300 font-medium">
-                  {isFreeDelivery
-                    ? t.freeDeliveryMet
-                    : t.freeDeliveryAway.replace(
-                        '{amount}',
-                        `Rs. ${(2500 - subtotal).toLocaleString()}`
-                      )}
-                </span>
-                <span className="font-bold text-pink-400">
-                  {isFreeDelivery ? 'FREE' : 'Rs. 199'}
-                </span>
+                <span className="text-neutral-300 font-medium">Pakistan doorstep delivery</span>
+                <span className="font-bold text-pink-400">Rs. {deliveryFee}</span>
               </div>
 
               {cart.length === 0 ? (
@@ -2314,6 +2309,8 @@ export default function App() {
             activeCheckoutItems={activeCheckoutItems}
             subtotal={subtotal}
             deliveryFee={deliveryFee}
+            deliveryZone={deliveryQuote.zone}
+            packageWeightKg={deliveryQuote.weightKg}
             isFreeDelivery={isFreeDelivery}
             isPromoApplied={isPromoApplied}
             promoDiscount={promoDiscount}

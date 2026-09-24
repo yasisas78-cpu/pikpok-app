@@ -20,6 +20,7 @@ import {
 import { Language, CartItem, OrderDetails, PaymentMethod, AdvancePaymentProof } from '../types';
 import { translations } from '../data/translations';
 import { PAKISTANI_CITIES } from '../data/products';
+import { calculateCommission } from '../lib/marketplace';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -27,6 +28,8 @@ interface CheckoutModalProps {
   activeCheckoutItems: CartItem[];
   subtotal: number;
   deliveryFee: number;
+  deliveryZone?: 'same-city' | 'major-intercity' | 'remote';
+  packageWeightKg?: number;
   isFreeDelivery: boolean;
   isPromoApplied: boolean;
   promoDiscount: number;
@@ -42,6 +45,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   activeCheckoutItems,
   subtotal,
   deliveryFee,
+  deliveryZone = 'major-intercity',
+  packageWeightKg = 1,
   isFreeDelivery,
   isPromoApplied,
   promoDiscount,
@@ -170,11 +175,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         items: activeCheckoutItems,
         subtotal,
         deliveryFee: isFreeDelivery ? 0 : deliveryFee,
+        deliveryZone,
+        packageWeightKg,
         discount: isPromoApplied ? promoDiscount : 0,
         total: grandTotal,
         date: new Date().toLocaleDateString('en-GB'),
         paymentMethod,
-        paymentProof
+        paymentProof,
+        sellerGross: calculateCommission(subtotal).grossMerchandise,
+        platformCommission: calculateCommission(subtotal).platformFee,
+        sellerPayout: calculateCommission(subtotal).sellerPayout
       };
 
       setIsProcessing(false);
@@ -239,9 +249,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               ))}
             </div>
 
-            <div className="mt-2 pt-1.5 border-t border-neutral-800/80 flex justify-between text-xs font-black">
-              <span className="text-neutral-300">{t.total}:</span>
-              <span className="text-pink-400 text-sm">{t.pkr} {grandTotal.toLocaleString()}</span>
+            <div className="mt-2 space-y-1 border-t border-neutral-800/80 pt-1.5 text-xs">
+              <div className="flex justify-between text-neutral-300"><span>Product Price</span><span>{t.pkr} {subtotal.toLocaleString()}</span></div>
+              <div className="flex justify-between text-neutral-300"><span>Doorstep Delivery Fee</span><span>{t.pkr} {deliveryFee.toLocaleString()}</span></div>
+              {promoDiscount > 0 && <div className="flex justify-between text-emerald-400"><span>Promo Discount</span><span>-{t.pkr} {promoDiscount.toLocaleString()}</span></div>}
+              <div className="flex justify-between pt-1 text-sm font-black"><span className="text-neutral-300">{t.total}:</span><span className="text-pink-400">{t.pkr} {grandTotal.toLocaleString()}</span></div>
             </div>
           </div>
 

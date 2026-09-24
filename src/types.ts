@@ -97,6 +97,30 @@ export interface OrderDetails {
   date: string;
   paymentMethod: PaymentMethod;
   paymentProof?: AdvancePaymentProof;
+  deliveryZone?: 'same-city' | 'major-intercity' | 'remote';
+  packageWeightKg?: number;
+  sellerGross?: number;
+  platformCommission?: number;
+  sellerPayout?: number;
+}
+
+export interface ProductReview {
+  id: string;
+  productId: string;
+  userId: string;
+  userName: string;
+  rating: number;
+  body: string;
+  imageUrls: string[];
+  verifiedPurchase: boolean;
+  helpfulCount: number;
+  createdAt: string;
+}
+
+export interface SellerWalletBalances {
+  inEscrow: number;
+  processingSettlement: number;
+  availableBalance: number;
 }
 
 export type UserRole = 'buyer' | 'seller';
