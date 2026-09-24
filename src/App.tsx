@@ -12,6 +12,7 @@ import {
   Play,
   Pause,
   Search,
+  Settings,
   Trash2,
   X,
   ChevronUp,
@@ -23,7 +24,6 @@ import {
   Copy,
   PackageCheck,
   Globe,
-  Smartphone,
   MapPin,
   User,
   Tag,
@@ -81,7 +81,7 @@ export default function App() {
   // Navigation & Language
   const [currentTab, setCurrentTab] = useState<'feed' | 'shop' | 'inbox' | 'profile'>('feed');
   const [lang, setLang] = useState<Language>('en');
-  const [isMobileFrame, setIsMobileFrame] = useState<boolean>(true);
+  const [topFeedTab, setTopFeedTab] = useState<'following' | 'for-you' | 'live-deals'>('for-you');
 
   // Authentication State
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
@@ -235,6 +235,7 @@ export default function App() {
   const [isShareOpen, setIsShareOpen] = useState<boolean>(false);
   const [isProductDetailOpen, setIsProductDetailOpen] = useState<boolean>(false);
   const [isVideoUploadOpen, setIsVideoUploadOpen] = useState<boolean>(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // Checkout & Order State
@@ -1041,9 +1042,6 @@ export default function App() {
     triggerToast(t.authSignOutToast);
   };
 
-  const streakHours = Math.floor(streakTimeLeftMs / (1000 * 60 * 60));
-  const isStreakExpiringSoon = streakTimeLeftMs > 0 && streakTimeLeftMs < 6 * 60 * 60 * 1000;
-
   return (
     <div
       dir={lang === 'ur' ? 'rtl' : 'ltr'}
@@ -1062,147 +1060,41 @@ export default function App() {
         </div>
       )}
 
-      {/* TOP BAR / HEADER */}
-      <header className="fixed inset-x-0 top-0 h-14 bg-gradient-to-b from-black/65 via-black/25 to-transparent px-4 py-2 flex items-center justify-between text-xs z-40 pointer-events-auto">
-        {/* Brand Logo */}
-        <div className="flex items-center space-x-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-pink-600 via-rose-500 to-amber-400 flex items-center justify-center font-black text-white text-base shadow-lg shadow-pink-500/20">
-            P
-          </div>
-          <div>
-            <span className="font-extrabold text-sm tracking-wider text-white">
-              {lang === 'ur' ? 'پک پوک' : 'PikPok'}
-            </span>
-          </div>
-        </div>
-
-        {/* Center: SNAPCHAT DAILY STREAK TOP COUNTER */}
-        <button
-          id="top-streak-counter-btn"
-          onClick={() => setIsStreakModalOpen(true)}
-          className={`flex items-center space-x-1.5 px-3 py-1 rounded-full border transition transform active:scale-95 shadow-md ${
-            isStreakExpiringSoon
-              ? 'bg-rose-950/70 border-rose-500 text-rose-400 animate-pulse'
-              : 'bg-neutral-800/90 border-amber-500/50 text-amber-400 hover:bg-neutral-800'
-          }`}
-          title="Click to view Streak Rules, 24h Expiration Timer & Rewards"
-        >
-          <Flame className="w-4 h-4 fill-amber-400 text-amber-400 animate-bounce" />
-          <span className="font-black text-xs">{userProfile.streakScore}</span>
-          <span className="text-[10px] text-neutral-400 hidden sm:inline-block">
-            • {streakHours}h left
-          </span>
+      {/* CLEAN TIKTOK-STYLE TOP HEADER */}
+      <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between bg-gradient-to-b from-black/70 via-black/25 to-transparent px-4 text-white">
+        <button onClick={() => setCurrentTab('feed')} className="flex items-center gap-2" aria-label="PikPok home">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-pink-600 via-rose-500 to-amber-400 text-lg font-black shadow-lg shadow-pink-500/20">P</span>
+          <span className="text-sm font-black tracking-wide">PikPok</span>
         </button>
 
-        {/* Right: Language Switcher, Device Toggle, Cart */}
-        <div className="flex items-center space-x-2">
-          {/* Desktop Frame Toggle */}
-          <button
-            id="toggle-device-frame-btn"
-            onClick={() => setIsMobileFrame((prev) => !prev)}
-            className="hidden md:flex items-center space-x-1 px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-md transition text-[11px]"
-            title="Toggle Smartphone Frame View"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-pink-400" />
-            <span>{isMobileFrame ? t.wideView : t.deviceView}</span>
-          </button>
-
-          {/* 3-Way Language Toggle (EN | RU | اردو) */}
-          <div className="flex items-center bg-neutral-800 p-0.5 rounded-lg border border-neutral-700/80">
-            <button
-              id="lang-btn-en"
-              onClick={() => setLang('en')}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${
-                lang === 'en' ? 'bg-pink-600 text-white' : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              EN
-            </button>
-            <button
-              id="lang-btn-ru"
-              onClick={() => setLang('ru')}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${
-                lang === 'ru' ? 'bg-pink-600 text-white' : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              RU
-            </button>
-            <button
-              id="lang-btn-ur"
-              onClick={() => setLang('ur')}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${
-                lang === 'ur' ? 'bg-pink-600 text-white' : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              اردو
-            </button>
-          </div>
-
-          {/* Right: Language Switcher, Device Toggle, Cart, and Auth Button/Avatar */}
-          {/* User Auth Avatar or Sign In Button (Requirement 3) */}
-          {authUser ? (
-            <div className="flex items-center space-x-1.5 pl-1">
+        {currentTab === 'feed' && (
+          <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-3 text-xs font-bold">
+            {([
+              ['following', 'Following'],
+              ['for-you', 'For You'],
+              ['live-deals', 'Live Deals']
+            ] as const).map(([id, label]) => (
               <button
-                id="header-user-profile-btn"
+                key={id}
                 onClick={() => {
-                  if (requireAuth()) setCurrentTab('profile');
+                  setTopFeedTab(id);
+                  if (id !== 'live-deals') handleSelectReelTab(id === 'following' ? 'following' : 'foryou');
                 }}
-                className="flex items-center space-x-1.5 bg-neutral-800/80 hover:bg-neutral-800 p-1 pr-2 rounded-full border border-neutral-700 transition"
-                title={`${authUser.name} (${authUser.role === 'seller' ? 'Shopkeeper' : 'Buyer'})`}
+                className={`relative whitespace-nowrap px-1 py-2 ${topFeedTab === id ? 'text-white' : 'text-white/55 hover:text-white'}`}
               >
-                <img
-                  src={authUser.avatar}
-                  alt={authUser.name}
-                  className="w-6 h-6 rounded-full object-cover border border-pink-500"
-                />
-                <span className="text-[10px] font-bold text-neutral-200 hidden sm:inline max-w-[80px] truncate">
-                  {authUser.name}
-                </span>
-                <span className={`text-[8px] font-black uppercase px-1 py-0.2 rounded ${
-                  authUser.role === 'seller' ? 'bg-amber-500/20 text-amber-400' : 'bg-pink-500/20 text-pink-400'
-                }`}>
-                  {authUser.role === 'seller' ? 'Seller' : 'Buyer'}
-                </span>
+                {label}
+                {topFeedTab === id && <span className="absolute bottom-0 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-white" />}
               </button>
+            ))}
+          </div>
+        )}
 
-              <button
-                id="header-signout-btn"
-                onClick={handleSignOut}
-                className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-rose-400 rounded-full transition"
-                title={t.signOutBtn}
-                aria-label={t.signOutBtn}
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ) : (
-            <button
-              id="header-signin-btn"
-              onClick={() => setIsAuthModalOpen(true)}
-              className="flex items-center space-x-1 px-2.5 py-1 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white rounded-full text-xs font-bold shadow-md shadow-pink-600/20 transition active:scale-95"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>{t.signInBtn}</span>
-            </button>
-          )}
-
-          {/* Cart Icon in Header */}
-          <button
-            id="header-cart-btn"
-            onClick={() => {
-              if (!requireAuth()) return;
-              setCheckoutProductDirect(null);
-              setIsCartOpen(true);
-            }}
-            className="relative p-2 bg-neutral-800 hover:bg-neutral-700 rounded-full transition text-white"
-            aria-label="View Cart"
-          >
-            <ShoppingCart className="w-4 h-4 text-neutral-200" />
-            {cartTotalItems > 0 && (
-              <span className="absolute -top-1 -right-1 bg-pink-500 text-white font-black text-[10px] w-4 h-4 rounded-full flex items-center justify-center animate-pulse">
-                {cartTotalItems}
-              </span>
-            )}
+        <div className="flex items-center gap-1">
+          <button onClick={() => setCurrentTab('shop')} className="rounded-full p-2 text-white/90 hover:bg-white/10" aria-label="Search">
+            <Search className="h-5 w-5" />
+          </button>
+          <button onClick={() => setIsSettingsOpen(true)} className="rounded-full p-2 text-white/90 hover:bg-white/10" aria-label="Open settings">
+            <Settings className="h-5 w-5" />
           </button>
         </div>
       </header>
@@ -1211,85 +1103,6 @@ export default function App() {
       <main
         className="relative flex h-screen min-h-screen w-full max-w-none flex-1 flex-col items-center justify-center overflow-hidden bg-black"
       >
-        {/* Top Header Floating Switcher */}
-        {currentTab === 'feed' && (
-          <div className="absolute top-3 left-0 right-0 z-30 flex items-center justify-center pointer-events-none">
-            <div className="pointer-events-auto bg-black/65 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/15 flex items-center space-x-2 sm:space-x-3 shadow-2xl">
-              <button
-                id="reel-tab-foryou-btn"
-                onClick={() => handleSelectReelTab('foryou')}
-                className={`relative px-2 py-0.5 text-xs transition-all ${
-                  reelTab === 'foryou'
-                    ? 'text-white font-black scale-105'
-                    : 'text-neutral-400 hover:text-white font-medium'
-                }`}
-              >
-                <span>{t.forYouTab}</span>
-                {reelTab === 'foryou' && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-pink-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.9)]" />
-                )}
-              </button>
-
-              <span className="text-white/20 text-xs font-light">•</span>
-
-              <button
-                id="reel-tab-following-btn"
-                onClick={() => handleSelectReelTab('following')}
-                className={`relative px-2 py-0.5 text-xs transition-all ${
-                  reelTab === 'following'
-                    ? 'text-white font-black scale-105'
-                    : 'text-neutral-400 hover:text-white font-medium'
-                }`}
-              >
-                <span>{t.followingTab}</span>
-                {reelTab === 'following' && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-pink-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.9)]" />
-                )}
-              </button>
-
-              <span className="text-white/20 text-xs font-light">•</span>
-
-              <button
-                id="reel-tab-friends-btn"
-                onClick={() => handleSelectReelTab('friends')}
-                className={`relative px-2 py-0.5 text-xs transition-all ${
-                  reelTab === 'friends'
-                    ? 'text-white font-black scale-105'
-                    : 'text-neutral-400 hover:text-white font-medium'
-                }`}
-              >
-                <span>{t.friendsTab}</span>
-                {reelTab === 'friends' && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-pink-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.9)]" />
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {currentTab === 'shop' && (
-          <div className="absolute top-4 left-0 right-0 z-30 flex items-center justify-center pointer-events-none">
-            <div className="pointer-events-auto bg-black/60 backdrop-blur-md p-1 rounded-full border border-white/10 flex items-center shadow-xl">
-              <button
-                id="nav-feed-tab"
-                onClick={() => setCurrentTab('feed')}
-                className="px-4 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 text-neutral-400 hover:text-white"
-              >
-                <Flame className="w-3.5 h-3.5 text-neutral-400" />
-                <span>{t.feedTab}</span>
-              </button>
-              <button
-                id="nav-shop-tab"
-                onClick={() => setCurrentTab('shop')}
-                className="px-4 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 bg-white text-black shadow-md"
-              >
-                <ShoppingBag className="w-3.5 h-3.5 text-pink-600" />
-                <span>{t.shopTab}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* VIEW 1: VIDEO FEED */}
         {currentTab === 'feed' && (
           <div className="relative w-full h-full bg-black overflow-hidden flex flex-col justify-between">
@@ -1976,11 +1789,13 @@ export default function App() {
             onClick={() => {
               if (requireAuth()) setIsVideoUploadOpen(true);
             }}
-            className="-mt-5 flex h-12 w-14 items-center justify-center rounded-xl border-2 border-white/80 bg-white text-black shadow-xl transition hover:scale-105"
+            className="-mt-5 flex h-12 w-14 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-400 via-white to-pink-500 p-[2px] shadow-[0_0_18px_rgba(236,72,153,0.45)] transition hover:scale-105"
             aria-label="Create video"
             title="Create video"
           >
-            <Plus className="h-7 w-7" />
+            <span className="flex h-full w-full items-center justify-center rounded-[10px] bg-white text-black">
+              <Plus className="h-7 w-7" />
+            </span>
           </button>
 
           {/* Inbox / Direct Messaging Tab (Requirement 2) */}
@@ -2656,6 +2471,53 @@ export default function App() {
                 {t.continueShopping}
               </button>
             </div>
+          </div>
+        )}
+
+        {isSettingsOpen && (
+          <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm" onClick={() => setIsSettingsOpen(false)}>
+            <aside
+              className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l border-white/10 bg-neutral-950/95 p-5 text-white shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-pink-400">PikPok</p>
+                  <h2 className="text-lg font-black">Settings</h2>
+                </div>
+                <button onClick={() => setIsSettingsOpen(false)} className="rounded-full bg-white/10 p-2 text-white/70 hover:text-white" aria-label="Close settings">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="border-b border-white/10 py-5">
+                <p className="mb-2 text-xs font-bold text-white/60">Language</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {([['en', 'English'], ['ru', 'Русский'], ['ur', 'اردو']] as const).map(([value, label]) => (
+                    <button key={value} onClick={() => setLang(value)} className={`rounded-xl border px-2 py-2 text-xs font-bold ${lang === value ? 'border-pink-500 bg-pink-500/20 text-white' : 'border-white/10 bg-white/5 text-white/60'}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2 py-5">
+                {authUser ? (
+                  <>
+                    <div className="flex items-center gap-3 rounded-2xl bg-white/5 p-3">
+                      <img src={authUser.avatar} alt={authUser.name} className="h-10 w-10 rounded-full object-cover" />
+                      <div className="min-w-0"><p className="truncate text-sm font-bold">{authUser.name}</p><p className="truncate text-xs text-white/50">{authUser.emailOrPhone}</p></div>
+                    </div>
+                    <button onClick={() => { setIsSettingsOpen(false); setCurrentTab('profile'); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/10"><User className="h-4 w-4 text-pink-400" />Account profile</button>
+                    <button onClick={handleSignOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-rose-300 hover:bg-rose-500/10"><LogOut className="h-4 w-4" />{t.signOutBtn}</button>
+                  </>
+                ) : (
+                  <button onClick={() => { setIsSettingsOpen(false); setIsAuthModalOpen(true); }} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 px-3 py-3 text-sm font-black"><LogIn className="h-4 w-4" />{t.signInBtn}</button>
+                )}
+                <button onClick={() => setIsStreakModalOpen(true)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/10"><Flame className="h-4 w-4 text-amber-400" />Daily streak and rewards</button>
+                <button onClick={() => { if (requireAuth()) { setIsSettingsOpen(false); setIsCartOpen(true); } }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/10"><ShoppingCart className="h-4 w-4 text-pink-400" />Shopping cart</button>
+              </div>
+            </aside>
           </div>
         )}
 
