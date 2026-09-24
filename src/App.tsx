@@ -1045,7 +1045,7 @@ export default function App() {
   return (
     <div
       dir={lang === 'ur' ? 'rtl' : 'ltr'}
-      className={`min-h-screen bg-neutral-950 text-white flex flex-col items-center justify-start select-none relative ${
+      className={`h-screen overflow-hidden bg-neutral-950 text-white flex flex-col items-center justify-start select-none relative ${
         lang === 'ur' ? "font-['Noto_Sans_Arabic',sans-serif]" : "font-sans"
       }`}
     >
@@ -1061,7 +1061,7 @@ export default function App() {
       )}
 
       {/* TOP BAR / HEADER */}
-      <header className="w-full bg-neutral-900/95 border-b border-neutral-800/80 px-4 py-2 flex items-center justify-between text-xs z-40 backdrop-blur-md">
+      <header className="fixed inset-x-0 top-0 h-14 bg-gradient-to-b from-black/65 via-black/25 to-transparent px-4 py-2 flex items-center justify-between text-xs z-40 pointer-events-auto">
         {/* Brand Logo */}
         <div className="flex items-center space-x-2">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-pink-600 via-rose-500 to-amber-400 flex items-center justify-center font-black text-white text-base shadow-lg shadow-pink-500/20">
@@ -1207,11 +1207,7 @@ export default function App() {
 
       {/* Main Container */}
       <main
-        className={`w-full transition-all duration-300 flex-1 flex flex-col items-center justify-center relative ${
-          isMobileFrame
-            ? 'max-w-[430px] my-0 sm:my-3 sm:rounded-[36px] sm:border-[8px] sm:border-neutral-800 sm:shadow-[0_0_60px_rgba(244,63,94,0.15)] overflow-hidden h-[92vh] max-h-[890px]'
-            : 'max-w-5xl h-[calc(100vh-50px)]'
-        } bg-black`}
+        className="relative flex h-screen min-h-screen w-full max-w-none flex-1 flex-col items-center justify-center overflow-hidden bg-black"
       >
         {/* Top Header Floating Switcher */}
         {currentTab === 'feed' && (
@@ -1400,7 +1396,7 @@ export default function App() {
                 </div>
 
                 {/* Top Video Controls: Sound Mute */}
-                <div className="relative z-20 pt-16 px-4 flex items-center justify-between pointer-events-auto">
+                <div className="relative z-20 pt-14 px-4 flex items-center justify-between pointer-events-auto">
                   <div className="flex items-center space-x-2">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-600/90 text-white backdrop-blur-sm border border-pink-400/40">
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping mr-1" />
