@@ -15,7 +15,6 @@ import {
   Share2,
   Sparkles,
   X,
-  Upload
 } from 'lucide-react';
 import { UserProfile, UserUploadedVideo, Product, Language, VideoPost } from '../types';
 import { translations } from '../data/translations';
@@ -30,7 +29,7 @@ interface ProfileViewProps {
   onRemoveSavedProduct: (id: string) => void;
   onBuyNowProduct: (product: Product) => void;
   onOpenStreakModal: () => void;
-  onPostNewVideo: (title: string, linkedProduct: Product) => void;
+  onOpenCreateVideo: () => void;
   onUpdateProfile: (name: string, bio: string) => void;
   availableProducts: Product[];
   lang: Language;
@@ -46,7 +45,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onRemoveSavedProduct,
   onBuyNowProduct,
   onOpenStreakModal,
-  onPostNewVideo,
+  onOpenCreateVideo,
   onUpdateProfile,
   availableProducts,
   lang
@@ -59,9 +58,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [editName, setEditName] = useState(profile.name);
   const [editBio, setEditBio] = useState(profile.bio[lang]);
 
-  const [isPostVideoOpen, setIsPostVideoOpen] = useState(false);
-  const [postTitle, setPostTitle] = useState('');
-  const [selectedProductId, setSelectedProductId] = useState(availableProducts[0]?.id || '');
 
   // Video preview modal
   const [previewVideo, setPreviewVideo] = useState<UserUploadedVideo | null>(null);
@@ -78,16 +74,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     if (editName.trim()) {
       onUpdateProfile(editName.trim(), editBio.trim());
       setIsEditProfileOpen(false);
-    }
-  };
-
-  const handlePostVideoSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (postTitle.trim()) {
-      const prod = availableProducts.find((p) => p.id === selectedProductId) || availableProducts[0];
-      onPostNewVideo(postTitle.trim(), prod);
-      setPostTitle('');
-      setIsPostVideoOpen(false);
     }
   };
 
@@ -205,7 +191,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
           <button
             id="profile-post-video-btn"
-            onClick={() => setIsPostVideoOpen(true)}
+            onClick={onOpenCreateVideo}
             className="flex-1 py-1.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white text-xs font-extrabold rounded-xl shadow-md shadow-pink-600/20 transition flex items-center justify-center space-x-1.5"
           >
             <PlusCircle className="w-3.5 h-3.5" />
@@ -417,7 +403,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <Video className="w-10 h-10 stroke-1" />
               <p className="text-xs font-semibold">{t.noUploadedVideos}</p>
               <button
-                onClick={() => setIsPostVideoOpen(true)}
+                onClick={onOpenCreateVideo}
                 className="mt-2 px-3 py-1.5 bg-pink-600 text-white rounded-xl text-xs font-bold"
               >
                 {t.postVideoBtn}
@@ -573,78 +559,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 className="w-full py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs rounded-xl transition"
               >
                 {t.saveChanges}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: POST VIDEO / SNAP DEAL */}
-      {isPostVideoOpen && (
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setIsPostVideoOpen(false)}
-        >
-          <div
-            className="w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-3xl p-5 text-white"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mb-3">
-              <div className="flex items-center space-x-1.5">
-                <Upload className="w-4 h-4 text-pink-500" />
-                <h3 className="text-sm font-bold text-white">{t.postVideoBtn}</h3>
-              </div>
-              <button
-                onClick={() => setIsPostVideoOpen(false)}
-                className="text-neutral-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="mb-3 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center space-x-2 text-[11px] text-amber-300 font-medium">
-              <Flame className="w-4 h-4 text-amber-400 shrink-0 fill-amber-400" />
-              <span>Posting a video immediately extends your Daily Streak by +1! 🔥</span>
-            </div>
-
-            <form onSubmit={handlePostVideoSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-neutral-300 block mb-1">
-                  Video Caption / Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={postTitle}
-                  onChange={(e) => setPostTitle(e.target.value)}
-                  placeholder="e.g. Unboxing this insane smartwatch deal in Karachi!"
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-pink-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-neutral-300 block mb-1">
-                  Tag Product for COD Checkout
-                </label>
-                <select
-                  value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-pink-500"
-                >
-                  {availableProducts.map((p) => (
-                    <option key={p.id} value={p.id} className="bg-neutral-900 text-white">
-                      {p.title[lang].slice(0, 45)}... (Rs. {p.pricePKR})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-pink-600/30 transition flex items-center justify-center space-x-1.5"
-              >
-                <Flame className="w-4 h-4 fill-white" />
-                <span>Post Video & Boost Streak</span>
               </button>
             </form>
           </div>

@@ -70,6 +70,8 @@ import { StreakModal } from './components/StreakModal';
 import { CheckoutModal } from './components/CheckoutModal';
 import { AuthModal } from './components/AuthModal';
 import { InboxView } from './components/InboxView';
+import { VideoUploadModal } from './components/VideoUploadModal';
+import { supabase } from './lib/supabase';
 
 export default function App() {
   // Navigation & Language
@@ -78,22 +80,41 @@ export default function App() {
   const [isMobileFrame, setIsMobileFrame] = useState<boolean>(true);
 
   // Authentication State
-  const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
-    try {
-      const stored = localStorage.getItem('pikpok_auth_user');
-      if (stored) return JSON.parse(stored);
-    } catch (e) {}
-    // Default logged in user (can sign out or sign in with another account)
-    return {
-      id: 'usr_default_1',
-      name: 'Hamza Ali Khan',
-      emailOrPhone: '0300-1234567',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80',
-      role: 'buyer',
-      method: 'phone'
-    };
-  });
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    const syncSessionUser = (sessionUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> } | null) => {
+      if (!sessionUser) {
+        setAuthUser(null);
+        return;
+      }
+
+      const metadataName = typeof sessionUser.user_metadata?.username === 'string'
+        ? sessionUser.user_metadata.username
+        : typeof sessionUser.user_metadata?.name === 'string' ? sessionUser.user_metadata.name : '';
+      const metadataAvatar = typeof sessionUser.user_metadata?.avatar_url === 'string'
+        ? sessionUser.user_metadata.avatar_url
+        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80';
+      setAuthUser({
+        id: sessionUser.id,
+        name: metadataName || sessionUser.email?.split('@')[0] || 'PikPok User',
+        emailOrPhone: sessionUser.email || '',
+        avatar: metadataAvatar,
+        role: sessionUser.user_metadata?.role === 'seller' ? 'seller' : 'buyer',
+        method: 'email'
+      });
+    };
+
+    supabase.auth.getSession().then(({ data }) => syncSessionUser(data.session?.user || null));
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      syncSessionUser(session?.user || null);
+    });
+
+    return () => authListener.subscription.unsubscribe();
+  }, []);
 
   // In-App Messaging & Conversations State
   const [conversations, setConversations] = useState<Conversation[]>(() => {
@@ -111,17 +132,6 @@ export default function App() {
       localStorage.setItem('pikpok_conversations', JSON.stringify(conversations));
     } catch (e) {}
   }, [conversations]);
-
-  // Persist auth user
-  useEffect(() => {
-    try {
-      if (authUser) {
-        localStorage.setItem('pikpok_auth_user', JSON.stringify(authUser));
-      } else {
-        localStorage.removeItem('pikpok_auth_user');
-      }
-    } catch (e) {}
-  }, [authUser]);
 
   // User Profile & Streak State
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
@@ -212,6 +222,7 @@ export default function App() {
   const [isCommentsOpen, setIsCommentsOpen] = useState<boolean>(false);
   const [isShareOpen, setIsShareOpen] = useState<boolean>(false);
   const [isProductDetailOpen, setIsProductDetailOpen] = useState<boolean>(false);
+  const [isVideoUploadOpen, setIsVideoUploadOpen] = useState<boolean>(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // Checkout & Order State
@@ -228,6 +239,7 @@ export default function App() {
 
   // Comments & Toast
   const [newCommentText, setNewCommentText] = useState<string>('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState<boolean>(false);
   const [shareCopiedToast, setShareCopiedToast] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -256,6 +268,71 @@ export default function App() {
       setToastMessage(null);
     }, 3000);
   };
+
+  useEffect(() => {
+    if (!supabase) return;
+    const client = supabase;
+
+    const refreshLikeCount = (videoId: string) => {
+      void client.from('video_likes').select('video_id', { count: 'exact', head: true }).eq('video_id', videoId).then(({ count }) => {
+        if (typeof count !== 'number') return;
+        setVideos((prev) => prev.map((video) => video.id === videoId ? { ...video, likesCount: count } : video));
+      });
+    };
+
+    const channel = client
+      .channel('pikpok-video-engagement')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'video_likes' }, (payload) => {
+        const row = (payload.new || payload.old) as { video_id?: string };
+        if (row.video_id) refreshLikeCount(row.video_id);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'video_comments' }, (payload) => {
+        const row = (payload.new || payload.old) as {
+          id?: string;
+          video_id?: string;
+          body?: string;
+          user_name?: string;
+          user_avatar?: string;
+        };
+        if (!row.video_id || !row.id) return;
+        const commentId = row.id;
+        setVideos((prev) => prev.map((video) => {
+          if (video.id !== row.video_id) return video;
+          if (payload.eventType === 'DELETE') {
+            const comments = video.commentsList.filter((comment) => comment.id !== commentId);
+            return { ...video, commentsList: comments, commentsCount: comments.length };
+          }
+          if (video.commentsList.some((comment) => comment.id === commentId)) return video;
+          const comment: CommentItem = {
+            id: commentId,
+            user: row.user_name || 'PikPok User',
+            avatar: row.user_avatar || userProfile.avatar,
+            city: 'Pakistan',
+            text: row.body || '',
+            likes: 1,
+            timeAgo: 'Just now',
+            verifiedBuyer: false
+          };
+          return { ...video, commentsList: [comment, ...video.commentsList], commentsCount: video.commentsCount + 1 };
+        }));
+      })
+      .subscribe();
+
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [userProfile.avatar]);
+
+  useEffect(() => {
+    if (!supabase || !authUser) return;
+    const client = supabase;
+    void client.from('video_likes').select('video_id').eq('user_id', authUser.id).then(({ data }) => {
+      if (!data) return;
+      const remoteLikedIds = data.map((row) => row.video_id as string);
+      setLikedVideoIds(remoteLikedIds);
+      setVideos((prev) => prev.map((video) => ({ ...video, isLiked: remoteLikedIds.includes(video.id) })));
+    });
+  }, [authUser]);
 
   // Streak Expiry Countdown Monitoring
   const [streakTimeLeftMs, setStreakTimeLeftMs] = useState<number>(0);
@@ -309,32 +386,67 @@ export default function App() {
   };
 
   // User Post New Video & Boost Streak
-  const handlePostNewVideo = (title: string, linkedProduct: Product) => {
-    const newVideo: UserUploadedVideo = {
-      id: `uv_${Date.now()}`,
+  const handleCreateVideo = async (file: File, title: string, tags: string[], linkedProduct: Product) => {
+    if (!authUser || !supabase) throw new Error('Please sign in before publishing a video.');
+
+    const extension = file.name.split('.').pop() || 'mp4';
+    const storagePath = `${authUser.id}/${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from('videos').upload(storagePath, file, {
+      contentType: file.type,
+      upsert: false
+    });
+    if (uploadError) throw uploadError;
+
+    const { data: publicUrlData } = supabase.storage.from('videos').getPublicUrl(storagePath);
+    const { data: insertedVideo, error: insertError } = await supabase
+      .from('videos')
+      .insert({
+        creator_id: authUser.id,
+        title,
+        tags,
+        video_url: publicUrlData.publicUrl,
+        poster_url: linkedProduct.image,
+        product_id: linkedProduct.id
+      })
+      .select('id, created_at')
+      .single();
+    if (insertError || !insertedVideo) throw insertError || new Error('Video record could not be created.');
+
+    const newVideo: VideoPost = {
+      id: insertedVideo.id,
+      videoUrl: publicUrlData.publicUrl,
+      posterUrl: linkedProduct.image,
+      creator: {
+        name: authUser.name,
+        handle: `@${authUser.name.toLowerCase().replace(/\s+/g, '')}`,
+        avatar: authUser.avatar,
+        verified: false
+      },
+      description: { en: title, ru: title, ur: title },
+      tags,
+      soundTitle: 'Original sound',
+      likesCount: 0,
+      commentsCount: 0,
+      sharesCount: 0,
+      isLiked: false,
+      isSaved: false,
+      isFollowed: false,
+      product: linkedProduct,
+      commentsList: []
+    };
+    setVideos((prev) => [newVideo, ...prev]);
+    setUploadedVideos((prev) => [{
+      id: insertedVideo.id,
       title,
       thumbnail: linkedProduct.image,
-      videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-young-man-wearing-a-smartwatch-41485-large.mp4",
-      views: "1",
-      likes: 1,
-      date: "Just now",
+      videoUrl: publicUrlData.publicUrl,
+      views: '0',
+      likes: 0,
+      date: 'Just now',
       linkedProductName: linkedProduct.title[lang]
-    };
-
-    setUploadedVideos((prev) => [newVideo, ...prev]);
-
-    // Extend streak automatically!
-    setUserProfile((prev) => ({
-      ...prev,
-      streakScore: prev.streakScore + 1,
-      lastActiveTimestamp: Date.now()
-    }));
-
-    triggerToast(
-      lang === 'ur'
-        ? `ویڈیو پوسٹ ہو گئی اور اسٹریک +1 بڑھ گئی! 🔥`
-        : `Video posted! Daily streak extended to ${userProfile.streakScore + 1} 🔥`
-    );
+    }, ...prev]);
+    setUserProfile((prev) => ({ ...prev, streakScore: prev.streakScore + 1, lastActiveTimestamp: Date.now() }));
+    triggerToast(`Video posted! Daily streak extended to ${userProfile.streakScore + 1}`);
   };
 
   // Update Profile Name / Bio
@@ -558,35 +670,34 @@ export default function App() {
     }
   };
 
-  // Like Toggle by Target Video ID (Requirement 1: Add to likedVideos list & increase count; if un-liked, remove ID & decrease count)
+  // Like Toggle by Target Video ID with Supabase persistence.
   const handleToggleLike = (targetId: string) => {
-    let nowLiked = false;
-    setVideos((prev) =>
-      prev.map((item) => {
-        if (item.id === targetId) {
-          nowLiked = !item.isLiked;
-          return {
-            ...item,
-            isLiked: nowLiked,
-            likesCount: nowLiked ? item.likesCount + 1 : Math.max(0, item.likesCount - 1)
-          };
+    if (!requireAuth() || !authUser || !supabase) return;
+    const targetVideo = videos.find((video) => video.id === targetId);
+    if (!targetVideo) return;
+    const nowLiked = !targetVideo.isLiked;
+
+    setVideos((prev) => prev.map((item) => item.id === targetId
+      ? { ...item, isLiked: nowLiked, likesCount: nowLiked ? item.likesCount + 1 : Math.max(0, item.likesCount - 1) }
+      : item));
+    setLikedVideoIds((prev) => nowLiked ? [targetId, ...prev.filter((id) => id !== targetId)] : prev.filter((id) => id !== targetId));
+    triggerToast(nowLiked ? t.videoLikedToast : t.videoUnlikedToast);
+
+    if (nowLiked) {
+      void supabase.from('video_likes').insert({ video_id: targetId, user_id: authUser.id }).then(({ error }) => {
+        if (error) {
+          setVideos((prev) => prev.map((item) => item.id === targetId ? { ...item, isLiked: false, likesCount: Math.max(0, item.likesCount - 1) } : item));
+          setLikedVideoIds((prev) => prev.filter((id) => id !== targetId));
+          triggerToast('Like could not be saved.');
         }
-        return item;
-      })
-    );
+      });
+    } else {
+      void supabase.from('video_likes').delete().eq('video_id', targetId).eq('user_id', authUser.id).then(({ error }) => {
+        if (error) triggerToast('Like could not be removed.');
+      });
+    }
 
-    setLikedVideoIds((prev) => {
-      if (prev.includes(targetId)) {
-        triggerToast(t.videoUnlikedToast);
-        return prev.filter((id) => id !== targetId);
-      } else {
-        triggerToast(t.videoLikedToast);
-        return [targetId, ...prev];
-      }
-    });
-
-    const vid = videos.find((v) => v.id === targetId);
-    if (vid && !vid.isLiked) {
+    if (nowLiked) {
       setShowHeartOverlay(true);
       setTimeout(() => setShowHeartOverlay(false), 800);
     }
@@ -642,39 +753,52 @@ export default function App() {
     );
   };
 
-  // Add Comment
-  const handleAddComment = () => {
-    if (!newCommentText.trim() || !currentVideo) return;
+  // Add Comment with Supabase persistence and realtime delivery.
+  const handleAddComment = async () => {
+    if (!newCommentText.trim() || !currentVideo || !requireAuth() || !authUser || !supabase) return;
+    setIsSubmittingComment(true);
+    const { data, error } = await supabase.from('video_comments').insert({
+      video_id: currentVideo.id,
+      user_id: authUser.id,
+      body: newCommentText.trim(),
+      user_name: userProfile.name,
+      user_avatar: userProfile.avatar
+    }).select('id, body, user_name, user_avatar, created_at').single();
+    setIsSubmittingComment(false);
+
+    if (error || !data) {
+      triggerToast(error?.message || 'Comment could not be posted.');
+      return;
+    }
+
     const newComment: CommentItem = {
-      id: `comm_${Date.now()}`,
-      user: userProfile.name,
-      avatar: userProfile.avatar,
-      city: "Pakistan",
-      text: newCommentText.trim(),
+      id: data.id,
+      user: data.user_name,
+      avatar: data.user_avatar,
+      city: 'Pakistan',
+      text: data.body,
       likes: 1,
-      timeAgo: "Just now",
+      timeAgo: 'Just now',
       verifiedBuyer: false
     };
-
-    setVideos((prev) =>
-      prev.map((item) => {
-        if (item.id === currentVideo.id) {
-          return {
-            ...item,
-            commentsCount: item.commentsCount + 1,
-            commentsList: [newComment, ...item.commentsList]
-          };
-        }
-        return item;
-      })
-    );
+    setVideos((prev) => prev.map((item) => item.id === currentVideo.id && !item.commentsList.some((comment) => comment.id === newComment.id)
+      ? { ...item, commentsCount: item.commentsCount + 1, commentsList: [newComment, ...item.commentsList] }
+      : item));
     setNewCommentText('');
     triggerToast(lang === 'ur' ? 'تبصرہ بھیج دیا گیا!' : lang === 'ru' ? 'Tabsara shamil ho gaya!' : 'Comment posted!');
   };
 
   // Cart Operations
+  const requireAuth = () => {
+    if (authUser) return true;
+    setIsAuthModalOpen(true);
+    triggerToast('Please sign in to continue');
+    return false;
+  };
+
   const handleAddToCart = (product: Product, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!requireAuth()) return;
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
@@ -694,6 +818,7 @@ export default function App() {
   };
 
   const handleUpdateQuantity = (productId: string, delta: number) => {
+    if (!requireAuth()) return;
     setCart((prev) =>
       prev
         .map((item) => {
@@ -708,6 +833,7 @@ export default function App() {
   };
 
   const handleRemoveFromCart = (productId: string) => {
+    if (!requireAuth()) return;
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
     triggerToast(lang === 'ur' ? "کارٹ سے نکال دیا گیا" : "Removed from Cart");
   };
@@ -715,6 +841,7 @@ export default function App() {
   // Buy Now direct checkout
   const handleBuyNowDirect = (product: Product, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!requireAuth()) return;
     setCheckoutProductDirect(product);
     setIsProductDetailOpen(false);
     setIsCartOpen(false);
@@ -884,6 +1011,7 @@ export default function App() {
   };
 
   const handleSignOut = () => {
+    void supabase?.auth.signOut();
     setAuthUser(null);
     triggerToast(t.authSignOutToast);
   };
@@ -991,7 +1119,9 @@ export default function App() {
             <div className="flex items-center space-x-1.5 pl-1">
               <button
                 id="header-user-profile-btn"
-                onClick={() => setCurrentTab('profile')}
+                onClick={() => {
+                  if (requireAuth()) setCurrentTab('profile');
+                }}
                 className="flex items-center space-x-1.5 bg-neutral-800/80 hover:bg-neutral-800 p-1 pr-2 rounded-full border border-neutral-700 transition"
                 title={`${authUser.name} (${authUser.role === 'seller' ? 'Shopkeeper' : 'Buyer'})`}
               >
@@ -1035,6 +1165,7 @@ export default function App() {
           <button
             id="header-cart-btn"
             onClick={() => {
+              if (!requireAuth()) return;
               setCheckoutProductDirect(null);
               setIsCartOpen(true);
             }}
@@ -1778,7 +1909,9 @@ export default function App() {
             }}
             onBuyNowProduct={(product) => handleBuyNowDirect(product)}
             onOpenStreakModal={() => setIsStreakModalOpen(true)}
-            onPostNewVideo={handlePostNewVideo}
+            onOpenCreateVideo={() => {
+              if (requireAuth()) setIsVideoUploadOpen(true);
+            }}
             onUpdateProfile={handleUpdateProfile}
             availableProducts={INITIAL_PRODUCTS}
             lang={lang}
@@ -1828,10 +1961,24 @@ export default function App() {
             <span className="text-[10px]">{t.inboxTab}</span>
           </button>
 
+          <button
+            id="tab-btn-create-video"
+            onClick={() => {
+              if (requireAuth()) setIsVideoUploadOpen(true);
+            }}
+            className="-mt-5 flex h-12 w-12 items-center justify-center rounded-full border-4 border-neutral-950 bg-gradient-to-br from-pink-500 to-rose-600 text-white shadow-xl shadow-pink-600/30 transition hover:scale-105"
+            aria-label="Create video"
+            title="Create video"
+          >
+            <Plus className="h-6 w-6" />
+          </button>
+
           {/* User Profile Tab */}
           <button
             id="tab-btn-profile"
-            onClick={() => setCurrentTab('profile')}
+            onClick={() => {
+              if (requireAuth()) setCurrentTab('profile');
+            }}
             className={`flex flex-col items-center space-y-0.5 transition relative ${
               currentTab === 'profile' ? 'text-pink-500 font-bold' : 'text-neutral-400 hover:text-white'
             }`}
@@ -1855,6 +2002,7 @@ export default function App() {
           <button
             id="tab-btn-cart"
             onClick={() => {
+              if (!requireAuth()) return;
               setCheckoutProductDirect(null);
               setIsCartOpen(true);
             }}
@@ -2311,6 +2459,7 @@ export default function App() {
                   <button
                     id="cart-proceed-checkout-btn"
                     onClick={() => {
+                      if (!requireAuth()) return;
                       setCheckoutProductDirect(null);
                       setIsCartOpen(false);
                       setIsCheckoutOpen(true);
@@ -2511,6 +2660,14 @@ export default function App() {
           onExtendStreak={handleExtendStreak}
           onSimulateExpiry={handleSimulateExpiry}
           onResetStreak={handleResetStreak}
+          lang={lang}
+        />
+
+        <VideoUploadModal
+          isOpen={isVideoUploadOpen}
+          onClose={() => setIsVideoUploadOpen(false)}
+          onSubmit={handleCreateVideo}
+          products={INITIAL_PRODUCTS}
           lang={lang}
         />
 
