@@ -7,8 +7,6 @@ import {
   ShoppingCart,
   Plus,
   Check,
-  Volume2,
-  VolumeX,
   Play,
   Pause,
   Search,
@@ -76,18 +74,20 @@ import { supabase } from './lib/supabase';
 import { calculateDeliveryQuote } from './lib/marketplace';
 
 const DEMO_AUTH_STORAGE_KEY = 'pikpok_demo_auth_user';
+const FEED_CACHE_KEY = 'pikpok_feed_cache_v1';
+const FEED_POSITION_KEY = 'pikpok_feed_position_v1';
 
 const accountStorageKey = (key: string, userId?: string) => userId ? `${key}:${userId}` : key;
 
 const createFreshUserProfile = (user?: AuthUser | null): UserProfile => {
-  const identifier = user?.name || user?.emailOrPhone || 'PikPok User';
+  const identifier = user?.username || user?.name || user?.emailOrPhone || 'PikPok User';
   return {
     name: user?.name || 'PikPok User',
     handle: `@${identifier.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20) || 'pikpokuser'}`,
     avatar: user?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80',
     role: user?.role || 'buyer',
     emailOrPhone: user?.emailOrPhone,
-    bio: { en: 'New to PikPok.', ru: 'Novyy polzovatel PikPok.', ur: 'PikPok par naye hain.' },
+    bio: { en: user?.bio || 'New to PikPok.', ru: user?.bio || 'Novyy polzovatel PikPok.', ur: user?.bio || 'PikPok par naye hain.' },
     followersCount: '0',
     followingCount: 0,
     totalLikesCount: '0',
@@ -115,6 +115,12 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
+    if (authUser || localStorage.getItem('pikpok_signup_prompt_seen') === '1') return;
+    const timer = window.setTimeout(() => setIsAuthModalOpen(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, [authUser]);
+
+  useEffect(() => {
     if (!supabase) return;
 
     const syncSessionUser = (sessionUser: { id: string; email?: string | null; phone?: string | null; user_metadata?: Record<string, unknown> } | null) => {
@@ -131,7 +137,9 @@ export default function App() {
         : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80';
       setAuthUser({
         id: sessionUser.id,
-        name: metadataName || sessionUser.email?.split('@')[0] || sessionUser.phone || 'PikPok User',
+        name: typeof sessionUser.user_metadata?.display_name === 'string' ? sessionUser.user_metadata.display_name : metadataName || sessionUser.email?.split('@')[0] || sessionUser.phone || 'PikPok User',
+        username: metadataName || sessionUser.email?.split('@')[0] || sessionUser.phone || 'pikpokuser',
+        bio: typeof sessionUser.user_metadata?.bio === 'string' ? sessionUser.user_metadata.bio : '',
         emailOrPhone: sessionUser.email || sessionUser.phone || '',
         avatar: metadataAvatar,
         role: sessionUser.user_metadata?.role === 'seller' ? 'seller' : 'buyer',
@@ -199,19 +207,23 @@ export default function App() {
 
   // Video Feed State
   const [videos, setVideos] = useState<VideoPost[]>(() => {
-    return INITIAL_VIDEOS.map((vid) => ({
-      ...vid,
-      isLiked: ['v1', 'v3'].includes(vid.id),
-      isSaved: ['v2', 'v4'].includes(vid.id)
-    }));
+    try {
+      const cached = localStorage.getItem(FEED_CACHE_KEY);
+      if (cached) return JSON.parse(cached) as VideoPost[];
+    } catch {}
+    return INITIAL_VIDEOS.map((vid) => ({ ...vid, isLiked: false, isSaved: false }));
   });
-  const [reelTab, setReelTab] = useState<ReelTab>('foryou');
-  const [currentVideoIndex, setCurrentVideoIndex] = useState<number>(0);
+  const [reelTab, setReelTab] = useState<ReelTab>(() => {
+    try {
+      return (JSON.parse(localStorage.getItem(FEED_POSITION_KEY) || '{}').reelTab || 'foryou') as ReelTab;
+    } catch { return 'foryou'; }
+  });
+  const [currentVideoIndex, setCurrentVideoIndex] = useState<number>(() => {
+    try { return Number(JSON.parse(localStorage.getItem(FEED_POSITION_KEY) || '{}').index) || 0; } catch { return 0; }
+  });
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [isMuted, setIsMuted] = useState<boolean>(true);
   const [videoProgress, setVideoProgress] = useState<number>(0);
   const [showHeartOverlay, setShowHeartOverlay] = useState<boolean>(false);
-  const [soundToast, setSoundToast] = useState<string | null>(null);
   const [isVideoLoading, setIsVideoLoading] = useState<boolean>(false);
 
   // Modals & Drawers
@@ -247,6 +259,13 @@ export default function App() {
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   const t = translations[lang];
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FEED_CACHE_KEY, JSON.stringify(videos));
+      localStorage.setItem(FEED_POSITION_KEY, JSON.stringify({ index: currentVideoIndex, reelTab }));
+    } catch {}
+  }, [videos, currentVideoIndex, reelTab]);
 
   // Persist Profile to LocalStorage
   useEffect(() => {
@@ -285,11 +304,11 @@ export default function App() {
     setUploadedVideos(read<UserUploadedVideo[]>('pikpok_uploaded_videos', []));
     setLikedVideoIds(loadedLikes);
     setSavedVideoIds(loadedSaves);
+    setVideos((prev) => prev.map((video) => ({ ...video, isLiked: loadedLikes.includes(video.id), isSaved: loadedSaves.includes(video.id) })));
     setSavedProducts([]);
     setCart([]);
     setConversations([]);
     setActiveConversationId(null);
-    setVideos(INITIAL_VIDEOS.map((vid) => ({ ...vid, isLiked: loadedLikes.includes(vid.id), isSaved: loadedSaves.includes(vid.id) })));
   }, [authUser?.id]);
 
   // Toast Trigger
@@ -515,37 +534,6 @@ export default function App() {
     }
   };
 
-  // Toggle Mute with visual sound toast
-  const toggleMute = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setIsMuted((prev) => {
-      const next = !prev;
-      setSoundToast(
-        next
-          ? lang === 'ur'
-            ? 'آواز بند'
-            : lang === 'ru'
-            ? 'Awaz Band'
-            : 'Muted'
-          : lang === 'ur'
-          ? 'آواز آن'
-          : lang === 'ru'
-          ? 'Awaz On'
-          : 'Sound On'
-      );
-      return next;
-    });
-  };
-
-  // Auto hide sound toast
-  useEffect(() => {
-    if (!soundToast) return;
-    const timer = setTimeout(() => {
-      setSoundToast(null);
-    }, 1400);
-    return () => clearTimeout(timer);
-  }, [soundToast]);
-
   // Keyboard navigation for video reels
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -561,14 +549,11 @@ export default function App() {
       } else if (e.key === ' ') {
         e.preventDefault();
         togglePlayPause();
-      } else if (e.key.toLowerCase() === 'm') {
-        e.preventDefault();
-        toggleMute();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentTab, currentVideoIndex, isCommentsOpen, isShareOpen, isCheckoutOpen, isCartOpen, isProductDetailOpen, isStreakModalOpen, lang]);
+  }, [currentTab, currentVideoIndex, isCommentsOpen, isShareOpen, isCheckoutOpen, isCartOpen, isProductDetailOpen, isStreakModalOpen]);
 
   // Filtered videos based on active Reel tab
   const filteredVideos = videos.filter((vid) => {
@@ -592,7 +577,7 @@ export default function App() {
     videoRefs.current.forEach((v, idx) => {
       if (!v) return;
       if (idx === currentVideoIndex) {
-        v.muted = isMuted;
+        v.muted = false;
         if (isPlaying) {
           const playPromise = v.play();
           if (playPromise !== undefined) {
@@ -606,7 +591,7 @@ export default function App() {
         v.currentTime = 0;
       }
     });
-  }, [currentVideoIndex, isPlaying, isMuted, currentTab, reelTab]);
+  }, [currentVideoIndex, isPlaying, currentTab, reelTab]);
 
   const handleSelectReelTab = (tab: ReelTab) => {
     videoRefs.current.forEach((v) => {
@@ -1177,7 +1162,6 @@ export default function App() {
                         loop
                         playsInline
                         preload={idx === currentVideoIndex ? 'auto' : 'metadata'}
-                        muted={isMuted}
                         onTimeUpdate={handleTimeUpdate}
                         onEnded={goToNextVideo}
                         onWaiting={() => {
@@ -1214,18 +1198,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Sound Indicator Overlay Toast */}
-                  {soundToast && (
-                    <div className="absolute top-24 left-1/2 -translate-x-1/2 z-40 bg-black/85 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 text-white text-xs font-bold flex items-center space-x-2 shadow-2xl transition duration-200 pointer-events-none">
-                      {isMuted ? (
-                        <VolumeX className="w-4 h-4 text-neutral-400" />
-                      ) : (
-                        <Volume2 className="w-4 h-4 text-pink-400" />
-                      )}
-                      <span>{soundToast}</span>
-                    </div>
-                  )}
-
                   {showHeartOverlay && (
                     <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
                       <Heart className="w-24 h-24 text-rose-500 fill-rose-500 drop-shadow-[0_0_25px_rgba(244,63,94,0.9)] animate-heart" />
@@ -1238,25 +1210,13 @@ export default function App() {
                   <div className="flex items-center space-x-2">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-600/90 text-white backdrop-blur-sm border border-pink-400/40">
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping mr-1" />
-                      LIVE DEAL
+                      TRENDING DEAL
                     </span>
                     <span className="text-[11px] font-medium text-neutral-300 drop-shadow">
                       {currentVideoIndex + 1} / {filteredVideos.length}
                     </span>
                   </div>
 
-                  <button
-                    id="mute-unmute-btn"
-                    onClick={toggleMute}
-                    className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-black/70 transition"
-                    aria-label="Toggle Sound"
-                  >
-                    {isMuted ? (
-                      <VolumeX className="w-4 h-4 text-neutral-300" />
-                    ) : (
-                      <Volume2 className="w-4 h-4 text-pink-400" />
-                    )}
-                  </button>
                 </div>
 
                 {/* Vertical Video Navigation Arrows */}
@@ -2598,9 +2558,13 @@ export default function App() {
         {/* MODAL: AUTHENTICATION & ONBOARDING (Requirement 1) */}
         <AuthModal
           isOpen={isAuthModalOpen}
-          onClose={() => setIsAuthModalOpen(false)}
+          onClose={() => {
+            localStorage.setItem('pikpok_signup_prompt_seen', '1');
+            setIsAuthModalOpen(false);
+          }}
           onLoginSuccess={handleLoginSuccess}
           lang={lang}
+          initialMode="signup"
         />
       </main>
     </div>

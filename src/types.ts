@@ -128,6 +128,8 @@ export type UserRole = 'buyer' | 'seller';
 export interface AuthUser {
   id: string;
   name: string;
+  username?: string;
+  bio?: string;
   emailOrPhone: string;
   avatar: string;
   role: UserRole;

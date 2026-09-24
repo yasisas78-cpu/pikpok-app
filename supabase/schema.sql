@@ -76,6 +76,10 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+alter table public.profiles add column if not exists display_name text;
+alter table public.profiles add column if not exists phone text;
+alter table public.profiles add column if not exists bio text;
+
 alter table public.profiles enable row level security;
 create policy "Profiles are publicly readable" on public.profiles for select using (true);
 create policy "Users can create their own fresh profile" on public.profiles for insert with check (auth.uid() = id and followers_count = 0 and following_count = 0 and post_count = 0);
@@ -86,11 +90,14 @@ returns trigger
 language plpgsql security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, username, avatar_url, role)
+  insert into public.profiles (id, username, display_name, phone, avatar_url, bio, role)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'username', split_part(coalesce(new.email, new.phone, 'pikpokuser'), '@', 1)),
+    coalesce(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'username', split_part(coalesce(new.email, new.phone, 'PikPok User'), '@', 1)),
+    new.raw_user_meta_data->>'phone',
     new.raw_user_meta_data->>'avatar_url',
+    new.raw_user_meta_data->>'bio',
     case when new.raw_user_meta_data->>'role' = 'seller' then 'seller' else 'buyer' end
   ) on conflict (id) do nothing;
   return new;
