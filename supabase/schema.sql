@@ -207,3 +207,43 @@ as $$
   from public.system_settings s
   where s.key = 'pakistan_platform_commission_percent';
 $$;
+
+create or replace function public.apply_order_financials()
+returns trigger
+language plpgsql security definer set search_path = public
+as $$
+declare commission_rate numeric;
+begin
+  select value into commission_rate from public.system_settings where key = 'pakistan_platform_commission_percent';
+  new.platform_commission_percent := coalesce(commission_rate, 5);
+  new.platform_fee_pkr := round(new.subtotal_pkr * new.platform_commission_percent / 100)::integer;
+  new.seller_payout_pkr := greatest(0, new.subtotal_pkr - new.platform_fee_pkr);
+  new.fulfillment_method := 'doorstep';
+  new.settlement_status := 'escrow';
+  return new;
+end;
+$$;
+
+drop trigger if exists order_financials_before_insert on public.orders;
+create trigger order_financials_before_insert
+before insert on public.orders
+for each row execute function public.apply_order_financials();
+
+create or replace function public.advance_due_settlements()
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  update public.orders
+  set settlement_status = 'processing-settlement'
+  where delivered_at is not null
+    and delivered_at <= now() - interval '9 days'
+    and settlement_status = 'escrow';
+
+  update public.orders
+  set settlement_status = 'available'
+  where delivered_at is not null
+    and delivered_at <= now() - interval '13 days'
+    and settlement_status = 'processing-settlement';
+end;
+$$;

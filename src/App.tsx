@@ -2318,6 +2318,37 @@ export default function App() {
             lang={lang}
             triggerToast={triggerToast}
             onOrderPlaced={(newOrder) => {
+              if (supabase && authUser) {
+                const client = supabase;
+                void client.from('orders').insert({
+                  tracking_id: newOrder.trackingId,
+                  buyer_id: authUser.id,
+                  subtotal_pkr: newOrder.subtotal,
+                  delivery_fee_pkr: newOrder.deliveryFee,
+                  discount_pkr: newOrder.discount,
+                  total_pkr: newOrder.total,
+                  delivery_zone: newOrder.deliveryZone || 'major-intercity',
+                  package_weight_kg: newOrder.packageWeightKg || 1,
+                  customer_name: newOrder.customerName,
+                  customer_phone: newOrder.phone,
+                  customer_city: newOrder.city,
+                  customer_address: newOrder.address,
+                  notes: newOrder.notes,
+                  payment_method: newOrder.paymentMethod
+                }).select('id').single().then(({ data, error }) => {
+                  if (error || !data) {
+                    triggerToast('Order saved locally; online settlement sync failed.');
+                    return;
+                  }
+                  return client.from('order_items').insert(newOrder.items.map((item) => ({
+                    order_id: data.id,
+                    product_id: item.product.id,
+                    quantity: item.quantity,
+                    unit_price_pkr: item.product.pricePKR,
+                    line_total_pkr: item.product.pricePKR * item.quantity
+                  })));
+                });
+              }
               setOrderConfirmedData(newOrder);
               setIsCheckoutOpen(false);
               if (!checkoutProductDirect) {
