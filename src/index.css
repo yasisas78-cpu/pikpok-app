@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Custom utility for hiding scrollbar while preserving scroll functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Vertical snap for TikTok style reels */
+.snap-reel-container {
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.snap-reel-item {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+@keyframes heart-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.animate-heart {
+  animation: heart-pulse 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes spin-record {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-record 5s linear infinite;
+}
