@@ -81,7 +81,7 @@ export default function App() {
   // Navigation & Language
   const [currentTab, setCurrentTab] = useState<'feed' | 'shop' | 'inbox' | 'profile'>('feed');
   const [lang, setLang] = useState<Language>('en');
-  const [topFeedTab, setTopFeedTab] = useState<'following' | 'for-you' | 'live-deals'>('for-you');
+  const [topFeedTab, setTopFeedTab] = useState<'following' | 'for-you' | 'friends'>('for-you');
 
   // Authentication State
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
@@ -1072,18 +1072,18 @@ export default function App() {
             {([
               ['following', 'Following'],
               ['for-you', 'For You'],
-              ['live-deals', 'Live Deals']
+              ['friends', 'Friends']
             ] as const).map(([id, label]) => (
               <button
                 key={id}
                 onClick={() => {
                   setTopFeedTab(id);
-                  if (id !== 'live-deals') handleSelectReelTab(id === 'following' ? 'following' : 'foryou');
+                  handleSelectReelTab(id === 'following' ? 'following' : id === 'friends' ? 'friends' : 'foryou');
                 }}
                 className={`relative whitespace-nowrap px-1 py-2 ${topFeedTab === id ? 'text-white' : 'text-white/55 hover:text-white'}`}
               >
                 {label}
-                {topFeedTab === id && <span className="absolute bottom-0 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-white" />}
+                {topFeedTab === id && <span className="absolute bottom-0 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.9)]" />}
               </button>
             ))}
           </div>
@@ -1092,6 +1092,9 @@ export default function App() {
         <div className="flex items-center gap-1">
           <button onClick={() => setCurrentTab('shop')} className="rounded-full p-2 text-white/90 hover:bg-white/10" aria-label="Search">
             <Search className="h-5 w-5" />
+          </button>
+          <button onClick={() => setCurrentTab('shop')} className="rounded-full p-2 text-white/90 hover:bg-white/10" aria-label="Open shop">
+            <ShoppingBag className="h-5 w-5" />
           </button>
           <button onClick={() => setIsSettingsOpen(true)} className="rounded-full p-2 text-white/90 hover:bg-white/10" aria-label="Open settings">
             <Settings className="h-5 w-5" />
@@ -1761,7 +1764,11 @@ export default function App() {
         <nav className="fixed inset-x-0 bottom-0 z-40 h-16 border-t border-white/10 bg-black/55 px-4 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl flex items-center justify-around">
           <button
             id="tab-btn-home"
-            onClick={() => setCurrentTab('feed')}
+            onClick={() => {
+              setCurrentTab('feed');
+              setTopFeedTab('for-you');
+              handleSelectReelTab('foryou');
+            }}
             className={`flex flex-col items-center space-y-0.5 transition ${
               currentTab === 'feed' ? 'text-pink-500 font-bold' : 'text-neutral-400 hover:text-white'
             }`}
@@ -1774,6 +1781,7 @@ export default function App() {
             id="tab-btn-friends"
             onClick={() => {
               setCurrentTab('feed');
+              setTopFeedTab('friends');
               handleSelectReelTab('friends');
             }}
             className={`flex flex-col items-center space-y-0.5 transition ${
