@@ -34,6 +34,8 @@ import {
   RefreshCw,
   Gift,
   Bookmark,
+  House,
+  Music2,
   Clock,
   PlusCircle,
   Users,
@@ -1444,7 +1446,7 @@ export default function App() {
                 </div>
 
                 {/* Right Sidebar Overlay Controls */}
-                <div className="absolute right-3 bottom-24 z-20 flex flex-col items-center space-y-3.5 pointer-events-auto">
+                <div className="absolute right-3 bottom-24 z-20 flex flex-col items-center space-y-2.5 pointer-events-auto">
                   {/* Creator Profile Avatar */}
                   <div className="relative mb-1">
                     <img
@@ -1458,7 +1460,7 @@ export default function App() {
                       className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center transition shadow-md ${
                         currentVideo.isFollowed
                           ? 'bg-emerald-500 text-white'
-                          : 'bg-pink-500 text-white hover:scale-110'
+                          : 'bg-red-500 text-white hover:scale-110'
                       }`}
                       aria-label="Follow Creator"
                     >
@@ -1533,8 +1535,8 @@ export default function App() {
                     }`}
                   />
                 </button>
-                <span className="text-[10px] font-semibold text-neutral-300 mt-0.5">
-                  {savedVideoIds.includes(currentVideo.id) ? 'Saved' : 'Save'}
+                    <span className="text-[10px] font-semibold text-white mt-0.5 drop-shadow-md">
+                      {savedVideoIds.includes(currentVideo.id) ? 1 : 0}
                 </span>
               </div>
 
@@ -1566,17 +1568,17 @@ export default function App() {
             </div>
 
             {/* Bottom Floating Product Overlay */}
-            <div className="relative z-20 px-3 pb-3 flex flex-col justify-end pointer-events-auto space-y-2 max-w-[85%] sm:max-w-[80%]">
+            <div className="absolute left-0 bottom-7 z-20 w-[calc(100%-5.5rem)] px-3 pb-1 flex flex-col justify-end pointer-events-auto space-y-1.5">
               <div
                 id="floating-product-card"
-                className="bg-neutral-900/95 hover:bg-neutral-900 backdrop-blur-xl border border-white/15 rounded-2xl p-2.5 shadow-2xl transition duration-200 cursor-pointer group"
+                className="bg-black/60 hover:bg-black/75 backdrop-blur-xl border border-white/15 rounded-xl p-1.5 shadow-2xl transition duration-200 cursor-pointer group"
                 onClick={() => {
                   setSelectedProduct(currentVideo.product);
                   setIsProductDetailOpen(true);
                 }}
               >
                 <div className="flex items-center space-x-2.5">
-                  <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-neutral-800 border border-white/10">
+                  <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-neutral-800 border border-white/10">
                     <img
                       src={currentVideo.product.image}
                       alt={currentVideo.product.title[lang]}
@@ -1613,14 +1615,14 @@ export default function App() {
                     <button
                       id="feed-buy-now-btn"
                       onClick={(e) => handleBuyNowDirect(currentVideo.product, e)}
-                      className="px-3 py-1.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white text-[11px] font-extrabold rounded-xl shadow-lg shadow-pink-600/30 transition transform active:scale-95 whitespace-nowrap"
+                      className="px-2 py-1 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white text-[10px] font-extrabold rounded-lg shadow-lg shadow-pink-600/30 transition transform active:scale-95 whitespace-nowrap"
                     >
                       {t.buyNow}
                     </button>
                     <button
                       id="feed-add-cart-btn"
                       onClick={(e) => handleAddToCart(currentVideo.product, e)}
-                      className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold rounded-xl transition flex items-center justify-center space-x-1"
+                      className="px-2 py-1 bg-white/10 hover:bg-white/20 text-white text-[9px] font-bold rounded-lg transition flex items-center justify-center space-x-1"
                     >
                       <ShoppingCart className="w-3 h-3 text-neutral-200" />
                       <span>+ {t.cartTab}</span>
@@ -1628,7 +1630,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="mt-1.5 pt-1.5 border-t border-white/10 flex items-center justify-between text-[10px] text-neutral-300">
+                <div className="mt-1 pt-1 border-t border-white/10 flex items-center justify-between text-[9px] text-neutral-300">
                   <span className="flex items-center text-emerald-400 font-semibold">
                     <ShieldCheck className="w-3 h-3 mr-1" />
                     {t.codBadge}
@@ -1645,7 +1647,7 @@ export default function App() {
                       <MessageSquare className="w-2.5 h-2.5" />
                       <span>{t.chatWithSeller}</span>
                     </button>
-                    <span className="text-neutral-400 truncate max-w-[90px]">
+                    <span className="text-neutral-400 truncate max-w-[70px]">
                       {currentVideo.product.badge[lang]}
                     </span>
                   </div>
@@ -1653,7 +1655,7 @@ export default function App() {
               </div>
 
               {/* Creator Caption */}
-              <div className="space-y-1">
+              <div className="space-y-0.5 px-0.5">
                 <div className="flex items-center space-x-1.5">
                   <span className="font-extrabold text-xs text-white drop-shadow">
                     {currentVideo.creator.handle}
@@ -1665,7 +1667,7 @@ export default function App() {
                   )}
                 </div>
 
-                <p className="text-[11px] text-neutral-200 line-clamp-2 leading-relaxed drop-shadow">
+                <p className="text-[11px] text-white line-clamp-2 leading-snug drop-shadow">
                   {currentVideo.description[lang]}
                 </p>
 
@@ -1676,11 +1678,16 @@ export default function App() {
                     </span>
                   ))}
                 </div>
+
+                <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-white/80">
+                  <Music2 className="h-3 w-3 animate-pulse text-pink-300" />
+                  <span className="max-w-[220px] truncate">{currentVideo.soundTitle}</span>
+                </div>
               </div>
             </div>
 
             {/* Video Progress Line */}
-            <div className="w-full bg-white/20 h-1 z-30">
+            <div className="absolute bottom-0 left-0 z-30 w-full bg-white/20 h-1">
               <div
                 className="bg-pink-500 h-full transition-all duration-100 ease-linear shadow-[0_0_8px_rgba(244,63,94,0.8)]"
                 style={{ width: `${videoProgress}%` }}
@@ -1937,28 +1944,43 @@ export default function App() {
           />
         )}
 
-        {/* BOTTOM FIXED NAVIGATION BAR (Feed, Shop, Inbox, Profile, Cart) */}
-        <nav className="absolute bottom-0 left-0 right-0 z-30 bg-neutral-950/95 backdrop-blur-xl border-t border-neutral-800/80 px-3 py-2 flex items-center justify-around">
+        {/* BOTTOM FIXED NAVIGATION BAR */}
+        <nav className="fixed inset-x-0 bottom-0 z-40 h-16 border-t border-white/10 bg-black/55 px-4 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl flex items-center justify-around">
           <button
-            id="tab-btn-feed"
+            id="tab-btn-home"
             onClick={() => setCurrentTab('feed')}
             className={`flex flex-col items-center space-y-0.5 transition ${
               currentTab === 'feed' ? 'text-pink-500 font-bold' : 'text-neutral-400 hover:text-white'
             }`}
           >
-            <Flame className="w-5 h-5" />
-            <span className="text-[10px]">{t.feedTab}</span>
+            <House className="w-5 h-5" />
+            <span className="text-[10px]">Home</span>
           </button>
 
           <button
-            id="tab-btn-shop"
-            onClick={() => setCurrentTab('shop')}
+            id="tab-btn-friends"
+            onClick={() => {
+              setCurrentTab('feed');
+              handleSelectReelTab('friends');
+            }}
             className={`flex flex-col items-center space-y-0.5 transition ${
-              currentTab === 'shop' ? 'text-pink-500 font-bold' : 'text-neutral-400 hover:text-white'
+              currentTab === 'feed' && reelTab === 'friends' ? 'text-pink-500 font-bold' : 'text-neutral-400 hover:text-white'
             }`}
           >
-            <ShoppingBag className="w-5 h-5" />
-            <span className="text-[10px]">{t.shopTab}</span>
+            <Users className="w-5 h-5" />
+            <span className="text-[10px]">Friends</span>
+          </button>
+
+          <button
+            id="tab-btn-create-video"
+            onClick={() => {
+              if (requireAuth()) setIsVideoUploadOpen(true);
+            }}
+            className="-mt-5 flex h-12 w-14 items-center justify-center rounded-xl border-2 border-white/80 bg-white text-black shadow-xl transition hover:scale-105"
+            aria-label="Create video"
+            title="Create video"
+          >
+            <Plus className="h-7 w-7" />
           </button>
 
           {/* Inbox / Direct Messaging Tab (Requirement 2) */}
@@ -1978,18 +2000,6 @@ export default function App() {
               )}
             </div>
             <span className="text-[10px]">{t.inboxTab}</span>
-          </button>
-
-          <button
-            id="tab-btn-create-video"
-            onClick={() => {
-              if (requireAuth()) setIsVideoUploadOpen(true);
-            }}
-            className="-mt-5 flex h-12 w-12 items-center justify-center rounded-full border-4 border-neutral-950 bg-gradient-to-br from-pink-500 to-rose-600 text-white shadow-xl shadow-pink-600/30 transition hover:scale-105"
-            aria-label="Create video"
-            title="Create video"
-          >
-            <Plus className="h-6 w-6" />
           </button>
 
           {/* User Profile Tab */}
@@ -2015,27 +2025,6 @@ export default function App() {
               </span>
             </div>
             <span className="text-[10px]">{t.profileTab}</span>
-          </button>
-
-          {/* Quick Cart Trigger */}
-          <button
-            id="tab-btn-cart"
-            onClick={() => {
-              if (!requireAuth()) return;
-              setCheckoutProductDirect(null);
-              setIsCartOpen(true);
-            }}
-            className="flex flex-col items-center space-y-0.5 text-neutral-400 hover:text-white transition relative"
-          >
-            <div className="relative">
-              <ShoppingCart className="w-5 h-5" />
-              {cartTotalItems > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-pink-500 text-white font-extrabold text-[9px] w-4 h-4 rounded-full flex items-center justify-center animate-pulse">
-                  {cartTotalItems}
-                </span>
-              )}
-            </div>
-            <span className="text-[10px]">{t.cartTab}</span>
           </button>
         </nav>
 
