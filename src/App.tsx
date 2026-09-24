@@ -73,6 +73,8 @@ import { InboxView } from './components/InboxView';
 import { VideoUploadModal } from './components/VideoUploadModal';
 import { supabase } from './lib/supabase';
 
+const DEMO_AUTH_STORAGE_KEY = 'pikpok_demo_auth_user';
+
 export default function App() {
   // Navigation & Language
   const [currentTab, setCurrentTab] = useState<'feed' | 'shop' | 'inbox' | 'profile'>('feed');
@@ -80,7 +82,15 @@ export default function App() {
   const [isMobileFrame, setIsMobileFrame] = useState<boolean>(true);
 
   // Authentication State
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
+    if (supabase) return null;
+    try {
+      const stored = localStorage.getItem(DEMO_AUTH_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
@@ -387,34 +397,43 @@ export default function App() {
 
   // User Post New Video & Boost Streak
   const handleCreateVideo = async (file: File, title: string, tags: string[], linkedProduct: Product) => {
-    if (!authUser || !supabase) throw new Error('Please sign in before publishing a video.');
+    if (!authUser) throw new Error('Please sign in before publishing a video.');
 
-    const extension = file.name.split('.').pop() || 'mp4';
-    const storagePath = `${authUser.id}/${crypto.randomUUID()}.${extension}`;
-    const { error: uploadError } = await supabase.storage.from('videos').upload(storagePath, file, {
-      contentType: file.type,
-      upsert: false
-    });
-    if (uploadError) throw uploadError;
+    let videoId: string;
+    let videoUrl: string;
+    if (supabase) {
+      const extension = file.name.split('.').pop() || 'mp4';
+      const storagePath = `${authUser.id}/${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await supabase.storage.from('videos').upload(storagePath, file, {
+        contentType: file.type,
+        upsert: false
+      });
+      if (uploadError) throw uploadError;
 
-    const { data: publicUrlData } = supabase.storage.from('videos').getPublicUrl(storagePath);
-    const { data: insertedVideo, error: insertError } = await supabase
-      .from('videos')
-      .insert({
-        creator_id: authUser.id,
-        title,
-        tags,
-        video_url: publicUrlData.publicUrl,
-        poster_url: linkedProduct.image,
-        product_id: linkedProduct.id
-      })
-      .select('id, created_at')
-      .single();
-    if (insertError || !insertedVideo) throw insertError || new Error('Video record could not be created.');
+      const { data: publicUrlData } = supabase.storage.from('videos').getPublicUrl(storagePath);
+      const { data: insertedVideo, error: insertError } = await supabase
+        .from('videos')
+        .insert({
+          creator_id: authUser.id,
+          title,
+          tags,
+          video_url: publicUrlData.publicUrl,
+          poster_url: linkedProduct.image,
+          product_id: linkedProduct.id
+        })
+        .select('id')
+        .single();
+      if (insertError || !insertedVideo) throw insertError || new Error('Video record could not be created.');
+      videoId = insertedVideo.id;
+      videoUrl = publicUrlData.publicUrl;
+    } else {
+      videoId = `demo_video_${Date.now()}`;
+      videoUrl = URL.createObjectURL(file);
+    }
 
     const newVideo: VideoPost = {
-      id: insertedVideo.id,
-      videoUrl: publicUrlData.publicUrl,
+      id: videoId,
+      videoUrl,
       posterUrl: linkedProduct.image,
       creator: {
         name: authUser.name,
@@ -436,10 +455,10 @@ export default function App() {
     };
     setVideos((prev) => [newVideo, ...prev]);
     setUploadedVideos((prev) => [{
-      id: insertedVideo.id,
+      id: videoId,
       title,
       thumbnail: linkedProduct.image,
-      videoUrl: publicUrlData.publicUrl,
+      videoUrl,
       views: '0',
       likes: 0,
       date: 'Just now',
@@ -1000,6 +1019,9 @@ export default function App() {
   // Authentication Handlers
   const handleLoginSuccess = (user: AuthUser) => {
     setAuthUser(user);
+    if (!supabase) {
+      localStorage.setItem(DEMO_AUTH_STORAGE_KEY, JSON.stringify(user));
+    }
     setUserProfile((prev) => ({
       ...prev,
       name: user.name,
@@ -1012,6 +1034,7 @@ export default function App() {
 
   const handleSignOut = () => {
     void supabase?.auth.signOut();
+    localStorage.removeItem(DEMO_AUTH_STORAGE_KEY);
     setAuthUser(null);
     triggerToast(t.authSignOutToast);
   };
