@@ -31,6 +31,7 @@
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.12",
     "tailwindcss": "^4.3.3",
+    "terser": "^5.51.2",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2"
   }

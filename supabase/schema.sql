@@ -291,3 +291,66 @@ begin
     and settlement_status = 'processing-settlement';
 end;
 $$;
+
+-- Security hardening: rerunnable policy reset for tables exposed to the app.
+-- Public content is readable anonymously; every mutation requires a user.
+drop policy if exists "Public videos are readable" on public.videos;
+create policy "Public videos are readable" on public.videos for select to anon, authenticated using (true);
+
+drop policy if exists "Users can publish their own videos" on public.videos;
+create policy "Users can publish their own videos" on public.videos for insert to authenticated with check (auth.uid() is not null and auth.uid() = creator_id);
+
+drop policy if exists "Users can delete their own videos" on public.videos;
+create policy "Users can delete their own videos" on public.videos for delete to authenticated using (auth.uid() = creator_id);
+
+drop policy if exists "Profiles are publicly readable" on public.profiles;
+drop policy if exists "Profiles are readable by signed-in users" on public.profiles;
+create policy "Profiles are readable by signed-in users" on public.profiles for select to authenticated using (true);
+
+drop policy if exists "Users can create their own fresh profile" on public.profiles;
+create policy "Users can create their own fresh profile" on public.profiles for insert to authenticated
+with check (auth.uid() = id and followers_count = 0 and following_count = 0 and post_count = 0);
+
+drop policy if exists "Users can update their own profile" on public.profiles;
+create policy "Users can update their own profile" on public.profiles for update to authenticated
+using (auth.uid() = id) with check (auth.uid() = id);
+
+drop policy if exists "Buyers can read their orders" on public.orders;
+create policy "Buyers can read their orders" on public.orders for select to authenticated
+using (auth.uid() = buyer_id or auth.uid() = seller_id);
+
+drop policy if exists "Buyers can create doorstep orders" on public.orders;
+create policy "Buyers can create doorstep orders" on public.orders for insert to authenticated
+with check (auth.uid() = buyer_id and fulfillment_method = 'doorstep');
+
+drop policy if exists "Order participants can read items" on public.order_items;
+create policy "Order participants can read items" on public.order_items for select to authenticated
+using (exists (select 1 from public.orders o where o.id = order_id and (o.buyer_id = auth.uid() or o.seller_id = auth.uid())));
+
+drop policy if exists "Buyers can add items to their orders" on public.order_items;
+create policy "Buyers can add items to their orders" on public.order_items for insert to authenticated
+with check (exists (select 1 from public.orders o where o.id = order_id and o.buyer_id = auth.uid()));
+
+-- Products are currently bundled as static client data. This table is reserved
+-- for server-backed catalog data and is protected before any future exposure.
+create table if not exists public.products (
+  id text primary key,
+  seller_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  price_pkr integer not null check (price_pkr >= 0),
+  image_url text,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+alter table public.products enable row level security;
+drop policy if exists "Public products are readable" on public.products;
+create policy "Public products are readable" on public.products for select to anon, authenticated using (active = true);
+drop policy if exists "Sellers can create products" on public.products;
+create policy "Sellers can create products" on public.products for insert to authenticated
+with check (auth.uid() = seller_id and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'seller'));
+drop policy if exists "Sellers can update products" on public.products;
+create policy "Sellers can update products" on public.products for update to authenticated
+using (auth.uid() = seller_id) with check (auth.uid() = seller_id);
+drop policy if exists "Sellers can delete products" on public.products;
+create policy "Sellers can delete products" on public.products for delete to authenticated using (auth.uid() = seller_id);

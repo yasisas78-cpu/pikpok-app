@@ -21,6 +21,18 @@ View your app in AI Studio: https://ai.studio/apps/077b9889-34f3-46c2-929a-37339
 5. Add `http://localhost:3000` to Supabase Authentication URL Configuration, then run the app:
    `npm run dev`
 
+## Production security
+
+The browser uses only the Supabase anon key (`VITE_SUPABASE_ANON_KEY`); it is
+safe to expose because database access is enforced by RLS. Never place
+`SUPABASE_SERVICE_ROLE_KEY` in a `VITE_` variable or browser module. Keep it
+only in the deployment secret manager or the ignored `.env.local` file for
+server-side tooling. Production builds are minified, omit source maps and
+console/debugger statements, and Vercel sends restrictive security headers.
+
+Run `supabase/schema.sql` after deploying schema changes. RLS is the security
+boundary; client-side checks are only UX safeguards.
+
 The initial marketplace rules are doorstep delivery only, with base courier rates of Rs. 160 same-city or Rs. 200 major inter-city, Rs. 60 per additional kilogram above 1kg, and Rs. 50 for remote zones. Seller funds move through 9-day escrow, 3-4 day processing settlement, then available payout; the commission is an internal 5% seller deduction.
 
 PikPok also ships as an installable PWA through `public/manifest.webmanifest` and `public/sw.js`.

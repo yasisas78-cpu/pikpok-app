@@ -6,6 +6,21 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    build: {
+      minify: 'terser',
+      sourcemap: false,
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+          passes: 2,
+        },
+        format: {
+          comments: false,
+        },
+        mangle: true,
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
